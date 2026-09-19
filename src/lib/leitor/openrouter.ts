@@ -9,7 +9,7 @@ import { normalizarLeitura, type LeitorDeConta } from "./tipos";
 export class LeitorOpenRouter implements LeitorDeConta {
   constructor(
     private readonly apiKey: string,
-    private readonly modelo = process.env.OPENROUTER_MODEL || "anthropic/claude-3.5-sonnet",
+    private readonly modelo = process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-5",
   ) {}
 
   async ler({ bytes, tipo }: { bytes: ArrayBuffer; tipo: string }) {

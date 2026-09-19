@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Onest Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --color-noite: #0a1628;
+  --color-painel: #101f38;
+  --color-relevo: #16294a;
+  --color-traco: #213659;
+  --color-sol: #e4b24c;
+  --color-sol-forte: #f2c462;
+  --color-texto: #e9eef6;
+  --color-nevoa: #8b9bb6;
+  --color-economia: #57c993;
+  --color-alerta: #f09a62;
+  --color-erro: #f07171;
+
+  --radius-cartao: 14px;
+  --radius-campo: 10px;
+}
+
+html {
+  background: var(--color-noite);
+  color: var(--color-texto);
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1;
+  min-height: 100dvh;
+}
+::selection { background: color-mix(in srgb, var(--color-sol) 35%, transparent); }
+
+:focus-visible {
+  outline: 2px solid var(--color-sol);
+  outline-offset: 2px;
+}
+
+input, select, textarea { font: inherit; color: inherit; }
+input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+
+.campo {
+  width: 100%;
+  background: var(--color-noite);
+  border: 1px solid var(--color-traco);
+  border-radius: var(--radius-campo);
+  padding: 0.7rem 0.85rem;
+  font-size: 1rem;
+  transition: border-color 0.15s;
+}
+.campo:focus { border-color: var(--color-sol); outline: none; }
+.campo[aria-invalid="true"], .campo.duvidoso { border-color: var(--color-alerta); background: color-mix(in srgb, var(--color-alerta) 8%, var(--color-noite)); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Arco do sol no painel: desenha uma única vez ao abrir */
+@keyframes arco { from { stroke-dashoffset: var(--arco-total); } }
+.arco-progresso { animation: arco 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }

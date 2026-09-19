@@ -1,10 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { gerarPdfFatura, type DadosFaturaPdf } from "./pdf/fatura";
+import type { DadosFaturaPdf } from "./pdf/fatura";
 import { brl, data, mesRef, nFatura } from "./format";
 
-/** Carrega a fatura (respeitando o client recebido) e gera o PDF */
+/** Carrega a fatura (respeitando o client recebido) e gera o PDF sob demanda */
 export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
+  const { gerarPdfFatura } = await import("./pdf/fatura");
   const { data: f, error } = await supabase.from("faturas").select("*").eq("id", faturaId).maybeSingle();
   if (error || !f) return null;
 

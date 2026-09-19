@@ -7,7 +7,7 @@ import { contexto, registrarEvento } from "@/lib/usina";
 import { calcularFatura, type ModoDesconto } from "@/lib/calculo";
 import { gerarPix } from "@/lib/pix";
 import { parseNumeroBR, soDigitos } from "@/lib/format";
-import { pdfDaFatura, legendaWhatsapp } from "@/lib/faturas";
+import { legendaWhatsapp } from "@/lib/faturas";
 import { enviarDocumento, enviarTexto } from "@/lib/whatsapp";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -213,6 +213,7 @@ export async function enviarWhatsapp(id: string): Promise<{ erro?: string; ok?: 
   try {
     const { supabase, usina } = await contexto();
     if (!usina.whatsapp_instancia) return { erro: "Configure a instância do WhatsApp em Ajustes." };
+    const { pdfDaFatura } = await import("@/lib/faturas");
     const r = await pdfDaFatura(supabase, id);
     if (!r) return { erro: "Fatura não encontrada." };
     if (r.fatura.status === "cancelada") return { erro: "Fatura cancelada não pode ser enviada." };

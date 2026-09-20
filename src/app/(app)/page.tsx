@@ -94,7 +94,7 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
       <Cartao className="flex flex-col items-center px-6 pb-6 pt-8">
         <ArcoSol fracao={faturado ? recebido / faturado : 0} />
         <p className="-mt-2 text-sm text-nevoa">Recebido de {brl(faturado)} faturados</p>
-        <p className="mt-1 text-[40px] font-semibold leading-none tracking-tight">{brl(recebido)}</p>
+        <p className="mt-1 text-[34px] font-semibold leading-none tracking-tight sm:text-[40px]">{brl(recebido)}</p>
         <div className="mt-6 grid w-full grid-cols-3 border-t border-traco pt-5 text-center">
           <div className="min-w-0 px-1">
             <p className="text-base font-semibold sm:text-lg truncate">{brl(faturado - recebido)}</p>
@@ -119,7 +119,7 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
         ) : null}
       </Cartao>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section>
           <h2 className="mb-3 font-semibold">Falta lançar a conta</h2>
           {semFatura.length ? (
@@ -150,7 +150,7 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
                     <span className="block truncate">{(f.snapshot as { cliente: { nome: string } }).cliente.nome}</span>
                     <span className="text-xs text-nevoa">vence {data(f.vencimento)}</span>
                   </span>
-                  <span className="flex items-center gap-2">
+                  <span className="flex shrink-0 items-center gap-2">
                     {f.vencimento < hoje ? <Status s="pendente" vencida /> : null}
                     <span className="font-medium">{brl(Number(f.total_centavos))}</span>
                   </span>

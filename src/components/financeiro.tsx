@@ -20,7 +20,7 @@ export function NovaDespesa({ hoje }: { hoje: string }) {
   }
   return (
     <Cartao className="mb-6 w-full p-5">
-      <form action={acao} className="grid gap-4 sm:grid-cols-2">
+      <form action={acao} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo rotulo="Descrição" className="sm:col-span-2">
           <input name="descricao" required placeholder="Limpeza dos painéis" className="campo" />
         </Campo>

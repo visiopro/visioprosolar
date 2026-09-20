@@ -26,7 +26,7 @@ export function FormCliente({ c = {} }: { c?: ClienteForm }) {
   return (
     <form action={acao} className="space-y-5">
       {c.id ? <input type="hidden" name="id" value={c.id} /> : null}
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Campo rotulo="Nome ou razão social" className="sm:col-span-2">
           <input name="nome" required defaultValue={c.nome} className="campo" autoComplete="off" />
         </Campo>
@@ -54,7 +54,7 @@ export function FormCliente({ c = {} }: { c?: ClienteForm }) {
 
       <fieldset className="rounded-[var(--radius-cartao)] border border-traco p-4">
         <legend className="px-1.5 text-sm font-medium">Regra de cobrança</legend>
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {(Object.keys(MODOS) as ModoDesconto[]).map((m) => (
             <label
               key={m}

@@ -65,7 +65,7 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
   const custo = Number(f.custo_usina_centavos ?? 0);
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
       <div>
         <p className="text-sm text-nevoa">
           Fatura Nº {nFatura(f.numero)} · <span className="capitalize">{mesExtenso(f.referencia)}</span>
@@ -76,14 +76,14 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
         </p>
 
         <Cartao className="mt-6 overflow-hidden">
-          <div className="grid sm:grid-cols-[1.3fr_1fr]">
+          <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
             <div className="p-6">
               <div className="flex items-center gap-2">
                 <Status s={f.status as "pendente"} vencida={f.status === "pendente" && f.vencimento < hoje} />
                 <span className="text-sm text-nevoa">vence {data(f.vencimento)}</span>
               </div>
               <p className="mt-4 text-sm text-nevoa line-through">{brl(Number(f.sem_usina_centavos))}</p>
-              <p className="text-[42px] font-semibold leading-none tracking-tight">{brl(Number(f.total_centavos))}</p>
+              <p className="text-[34px] font-semibold leading-none sm:text-[42px] tracking-tight">{brl(Number(f.total_centavos))}</p>
             </div>
             <div className="border-t border-traco bg-economia/5 p-6 sm:border-l sm:border-t-0">
               <p className="text-sm text-nevoa">Economia do cliente</p>

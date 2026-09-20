@@ -97,7 +97,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section>
           <h2 className="mb-3 font-semibold">A receber dos clientes</h2>
           {receber.length ? (
@@ -108,7 +108,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
                     <span className="block truncate text-sm sm:text-base">{(f.snapshot as { cliente: { nome: string } }).cliente.nome}</span>
                     <span className="block truncate text-[11px] sm:text-xs text-nevoa">vence {data(f.vencimento)}{f.cobranca_gateway === "asaas" ? " · Asaas" : f.cobranca_gateway === "mercadopago" ? " · Mercado Pago" : ""}</span>
                   </span>
-                  <span className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                  <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
                     <Status s="pendente" vencida={f.vencimento < hoje} />
                     <span className="text-sm sm:text-base font-medium">{brl(Number(f.total_centavos))}</span>
                   </span>

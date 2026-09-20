@@ -19,7 +19,7 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
   const economia = (faturas ?? []).filter((f) => f.status !== "cancelada").reduce((s, f) => s + Number(f.economia_centavos), 0);
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div>
         <Cabecalho titulo={c.nome} sub={`UC ${c.uc}${c.ativo ? "" : " · inativo"}`} />
         <Cartao className="p-5 sm:p-6">

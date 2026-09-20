@@ -63,7 +63,7 @@ export default async function Faturas({ searchParams }: { searchParams: Promise<
           {faturas.map((f) => {
             const cli = (f.snapshot as { cliente: { nome: string; uc: string } }).cliente;
             return (
-              <Link key={f.id} href={`/faturas/${f.id}`} className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-3 sm:gap-x-4 sm:px-4 hover:bg-relevo/50">
+              <Link key={f.id} href={`/faturas/${f.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-3 py-3 sm:gap-x-4 sm:px-4 hover:bg-relevo/50">
                 <span className="min-w-0 overflow-hidden">
                   <span className="block truncate text-sm sm:text-base">{cli.nome}</span>
                   <span className="block truncate text-[11px] sm:text-xs text-nevoa">

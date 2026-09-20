@@ -13,7 +13,7 @@ export function FormUsina({ usina, podeEditar }: { usina: Usina; podeEditar: boo
   const [estado, acao, enviando] = useActionState<Estado, FormData>(salvarUsina, undefined);
   return (
     <form action={acao} className="space-y-5">
-      <fieldset disabled={!podeEditar} className="grid gap-5 disabled:opacity-70 sm:grid-cols-2">
+      <fieldset disabled={!podeEditar} className="grid grid-cols-1 gap-5 disabled:opacity-70 sm:grid-cols-2">
         <Campo rotulo="Nome da usina" className="sm:col-span-2">
           <input name="nome" required defaultValue={usina.nome} className="campo" />
         </Campo>
@@ -129,7 +129,7 @@ export function FormCobranca(p: { usina: Usina; asaasConfigurado: boolean; mpCon
       <p className="text-sm leading-relaxed text-nevoa">
         Com a cobrança automática, cada fatura vira uma cobrança com PIX dinâmico. Quando o cliente paga, a fatura muda para paga sozinha e a taxa do serviço entra no financeiro.
       </p>
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {opcoes.map((o) => (
           <label key={o.v} className={`cursor-pointer rounded-[var(--radius-campo)] border px-3.5 py-3 ${gateway === o.v ? "border-sol bg-sol/5" : "border-traco"}`}>
             <input type="radio" name="gateway" value={o.v} checked={gateway === o.v} onChange={() => setGateway(o.v)} className="sr-only" />
@@ -140,7 +140,7 @@ export function FormCobranca(p: { usina: Usina; asaasConfigurado: boolean; mpCon
       </div>
 
       <div className={gateway === "asaas" ? "space-y-5" : "hidden"}>
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Campo rotulo="Ambiente" ajuda="Detectado pela chave quando ela começa com $aact_hmlg_ ou $aact_prod_.">
             <select name="asaas_ambiente" defaultValue={p.usina.asaas_ambiente} className="campo">
               <option value="sandbox">Sandbox (teste)</option>

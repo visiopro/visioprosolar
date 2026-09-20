@@ -7,7 +7,7 @@ import { NavInferior, NavLateral } from "@/components/navegacao";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { usina } = await contexto();
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[250px_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[250px_minmax(0,1fr)]">
       <aside className="hidden border-r border-traco px-5 py-6 lg:block">
         <div className="mb-8">
           {usina.logo_path ? (

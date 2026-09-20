@@ -174,7 +174,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
             <p className="mt-1 text-sm text-nevoa">Isso leva alguns segundos.</p>
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => camera.current?.click()}
@@ -235,7 +235,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
   // conferir
   const leitura = resp?.leitura;
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
       <div className="lg:sticky lg:top-6 lg:self-start">
         <Cartao className="overflow-hidden">
           {previa ? (

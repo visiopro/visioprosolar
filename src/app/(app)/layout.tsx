@@ -10,9 +10,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-dvh lg:grid lg:grid-cols-[250px_1fr]">
       <aside className="hidden border-r border-traco px-5 py-6 lg:block">
         {usina.logo_path ? (
-          <div className="mb-3 grid h-16 place-items-center rounded-[var(--radius-campo)] bg-white px-3 py-2">
+          <div className="mb-4 flex h-16 w-full items-center justify-center overflow-hidden rounded-[var(--radius-campo)] bg-white p-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={urlLogo(usina.logo_path)!} alt={usina.nome} className="max-h-full max-w-full object-contain" />
+            <img src={urlLogo(usina.logo_path)!} alt={usina.nome} className="max-h-12 max-w-full object-contain" />
           </div>
         ) : null}
         <div className="mb-8 flex items-center gap-2.5">

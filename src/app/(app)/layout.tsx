@@ -1,11 +1,13 @@
 import { contexto, urlLogo } from "@/lib/usina";
 import Link from "next/link";
-import { Settings } from "lucide-react";
+import { Settings, ShieldCheck } from "lucide-react";
+import { ehSuperAdmin } from "@/lib/admin";
 import { Marca } from "@/components/marca";
 import { NavInferior, NavLateral } from "@/components/navegacao";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { usina } = await contexto();
+  const { usina, user } = await contexto();
+  const superAdmin = ehSuperAdmin(user.email);
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[250px_minmax(0,1fr)]">
       <aside className="hidden border-r border-traco px-5 py-6 lg:block">
@@ -37,6 +39,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           )}
         </div>
         <NavLateral />
+        {superAdmin ? (
+          <Link href="/admin" className="mt-6 flex items-center gap-2.5 rounded-[var(--radius-campo)] border border-traco px-3.5 py-2.5 text-sm text-nevoa hover:text-texto">
+            <ShieldCheck size={17} /> Painel VisioPro
+          </Link>
+        ) : null}
       </aside>
 
       <div className="min-w-0 overflow-x-clip">
@@ -55,6 +62,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Marca className="h-6 w-6" />
           )}
           <p className="flex-1 truncate font-semibold">{usina.nome}</p>
+          {superAdmin ? (
+            <Link href="/admin" aria-label="Painel VisioPro" className="rounded-lg p-1.5 text-nevoa hover:text-texto">
+              <ShieldCheck size={20} />
+            </Link>
+          ) : null}
           <Link href="/configuracoes" aria-label="Ajustes" className="rounded-lg p-1.5 text-nevoa hover:text-texto">
             <Settings size={20} />
           </Link>

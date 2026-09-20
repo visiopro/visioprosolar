@@ -7,6 +7,7 @@ import { descreverRegra, type ModoDesconto } from "../calculo";
 Font.registerHyphenationCallback((palavra) => [palavra]);
 
 export type DadosFaturaPdf = {
+  logo?: Buffer | null;       // PNG/JPEG da usina
   numero: number;
   referencia: string;
   vencimento: string;
@@ -28,7 +29,7 @@ export type DadosFaturaPdf = {
   asaas_link?: string | null;
   snapshot: {
     cliente: { nome: string; documento: string | null; uc: string; distribuidora: string };
-    usina: { nome: string; documento: string | null; pix_favorecido: string | null };
+    usina: { nome: string; documento: string | null; pix_favorecido: string | null; logo_path?: string | null };
   };
 };
 
@@ -44,6 +45,7 @@ const s = StyleSheet.create({
   topo: { backgroundColor: NAVY, paddingHorizontal: 40, paddingTop: 34, paddingBottom: 28, flexDirection: "row", justifyContent: "space-between" },
   usina: { color: "#FFFFFF", fontSize: 20, fontFamily: "Helvetica-Bold" },
   usinaDoc: { color: "#9FB0CA", fontSize: 9, marginTop: 4 },
+  logoCaixa: { backgroundColor: "#FFFFFF", borderRadius: 6, padding: 6, marginRight: 14, width: 116, height: 60, alignItems: "center", justifyContent: "center" },
   selo: { alignItems: "flex-end" },
   seloTit: { color: OURO, fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 1 },
   seloNum: { color: "#FFFFFF", fontSize: 16, fontFamily: "Helvetica-Bold", marginTop: 3 },
@@ -77,9 +79,16 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
     <Document title={`Fatura ${nFatura(f.numero)} - ${usina.nome}`} author={usina.nome}>
       <Page size="A4" style={s.pagina}>
         <View style={s.topo}>
-          <View>
-            <Text style={s.usina}>{usina.nome}</Text>
-            {usina.documento ? <Text style={s.usinaDoc}>CNPJ/CPF {usina.documento}</Text> : null}
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {f.logo ? (
+              <View style={s.logoCaixa}>
+                <Image src={f.logo} style={{ maxWidth: 104, maxHeight: 48, objectFit: "contain" }} />
+              </View>
+            ) : null}
+            <View>
+              <Text style={s.usina}>{usina.nome}</Text>
+              {usina.documento ? <Text style={s.usinaDoc}>CNPJ/CPF {usina.documento}</Text> : null}
+            </View>
           </View>
           <View style={s.selo}>
             <Text style={s.seloTit}>FATURA DE ENERGIA SOLAR</Text>

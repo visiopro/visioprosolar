@@ -1,7 +1,10 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { convidarMembro, removerMembro, salvarAsaas, salvarUsina, type Estado } from "@/app/(app)/actions";
+import { convidarMembro, removerMembro, salvarAsaas, salvarLogo, salvarUsina, type Estado } from "@/app/(app)/actions";
+import { useRouter } from "next/navigation";
+import { ImageUp, Loader2 } from "lucide-react";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { Copy } from "lucide-react";
 import type { Usina } from "@/lib/usina";
 import { Aviso, Botao, Campo, Cartao } from "./ui";
@@ -156,5 +159,82 @@ export function FormAsaas(p: { usina: Usina; chaveConfigurada: boolean; webhookU
       {estado ? <Aviso tipo={estado.erro ? "erro" : "ok"}>{estado.erro ?? estado.ok}</Aviso> : null}
       <Botao disabled={enviando}>{enviando ? "Conectando…" : "Salvar e testar conexão"}</Botao>
     </form>
+  );
+}
+
+/** Converte qualquer imagem em PNG de até 600px, mantendo a transparência */
+async function prepararLogo(arquivo: File): Promise<Blob> {
+  const img = await createImageBitmap(arquivo);
+  const escala = Math.min(1, 600 / Math.max(img.width, img.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(img.width * escala));
+  canvas.height = Math.max(1, Math.round(img.height * escala));
+  canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
+  if (!blob) throw new Error("Não foi possível processar a imagem.");
+  if (blob.size > 2 * 1024 * 1024) throw new Error("A logo ficou maior que 2 MB. Use uma imagem mais simples.");
+  return blob;
+}
+
+export function LogoUsina({ usinaId, url, podeEditar }: { usinaId: string; url: string | null; podeEditar: boolean }) {
+  const router = useRouter();
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  async function enviar(arquivo: File | undefined) {
+    if (!arquivo) return;
+    if (!arquivo.type.startsWith("image/")) return setErro("Envie uma imagem (PNG, JPG ou WebP).");
+    setErro(null);
+    setEnviando(true);
+    try {
+      const png = await prepararLogo(arquivo);
+      const caminho = `${usinaId}/logo-${Date.now()}.png`;
+      const { error } = await supabaseBrowser().storage.from("logos").upload(caminho, png, { contentType: "image/png" });
+      if (error) throw new Error("Não foi possível enviar a logo.");
+      const r = await salvarLogo(caminho);
+      if (r.erro) throw new Error(r.erro);
+      router.refresh();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function remover() {
+    setEnviando(true);
+    const r = await salvarLogo(null);
+    setEnviando(false);
+    if (r.erro) setErro(r.erro);
+    else router.refresh();
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-5">
+      <div className="grid h-24 w-40 place-items-center rounded-[var(--radius-campo)] border border-traco bg-white p-3">
+        {url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt="Logo da usina" className="max-h-full max-w-full object-contain" />
+        ) : (
+          <span className="text-xs text-slate-500">Sem logo</span>
+        )}
+      </div>
+      {podeEditar ? (
+        <div className="space-y-2">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--radius-campo)] border border-traco bg-relevo px-4 py-2.5 text-[15px] hover:border-nevoa">
+            {enviando ? <Loader2 size={17} className="animate-spin" /> : <ImageUp size={17} />}
+            {url ? "Trocar logo" : "Enviar logo"}
+            <input type="file" accept="image/png,image/jpeg,image/webp" hidden disabled={enviando} onChange={(e) => enviar(e.target.files?.[0])} />
+          </label>
+          {url ? (
+            <button type="button" onClick={remover} disabled={enviando} className="block text-sm text-nevoa hover:text-erro">
+              Remover logo
+            </button>
+          ) : null}
+          <p className="text-xs text-nevoa">PNG com fundo transparente fica melhor. Aparece nas faturas.</p>
+          {erro ? <p className="text-sm text-erro">{erro}</p> : null}
+        </div>
+      ) : null}
+    </div>
   );
 }

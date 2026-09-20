@@ -23,11 +23,13 @@ html {
   background: var(--color-noite);
   color: var(--color-texto);
   -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
 }
 body {
   font-family: var(--font-sans);
   font-feature-settings: "tnum" 1;
   min-height: 100dvh;
+  overflow-x: hidden;
 }
 ::selection { background: color-mix(in srgb, var(--color-sol) 35%, transparent); }
 

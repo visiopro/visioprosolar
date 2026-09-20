@@ -96,24 +96,24 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
         <p className="-mt-2 text-sm text-nevoa">Recebido de {brl(faturado)} faturados</p>
         <p className="mt-1 text-[40px] font-semibold leading-none tracking-tight">{brl(recebido)}</p>
         <div className="mt-6 grid w-full grid-cols-3 border-t border-traco pt-5 text-center">
-          <div>
-            <p className="text-lg font-semibold">{brl(faturado - recebido)}</p>
-            <p className="text-xs text-nevoa">a receber</p>
+          <div className="min-w-0 px-1">
+            <p className="text-base font-semibold sm:text-lg truncate">{brl(faturado - recebido)}</p>
+            <p className="text-[10px] sm:text-xs text-nevoa">a receber</p>
           </div>
-          <div className="border-x border-traco">
-            <p className="text-lg font-semibold">
+          <div className="border-x border-traco min-w-0 px-1">
+            <p className="text-base font-semibold sm:text-lg">
               {doMes.length}/{clientes.length}
             </p>
-            <p className="text-xs text-nevoa">clientes faturados</p>
+            <p className="text-[10px] sm:text-xs text-nevoa">faturados</p>
           </div>
-          <div>
-            <p className="text-lg font-semibold text-economia">{brl(economia)}</p>
-            <p className="text-xs text-nevoa">economia gerada</p>
+          <div className="min-w-0 px-1">
+            <p className="text-base font-semibold text-economia sm:text-lg truncate">{brl(economia)}</p>
+            <p className="text-[10px] sm:text-xs text-nevoa">economia</p>
           </div>
         </div>
         {custo > 0 ? (
-          <p className="mt-5 w-full rounded-[var(--radius-campo)] bg-relevo px-4 py-3 text-center text-sm text-nevoa">
-            Contas pagas à distribuidora: {brl(custo)} · Resultado do mês{" "}
+          <p className="mt-5 w-full rounded-[var(--radius-campo)] bg-relevo px-3 py-3 text-center text-xs sm:text-sm text-nevoa leading-relaxed">
+            Distribuidora: {brl(custo)} · Resultado{" "}
             <span className={faturado - custo >= 0 ? "font-semibold text-economia" : "font-semibold text-erro"}>{brl(faturado - custo)}</span>
           </p>
         ) : null}
@@ -165,16 +165,16 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
 
       <section>
         <h2 className="mb-3 font-semibold">Faturamento dos últimos 6 meses</h2>
-        <Cartao className="px-5 pb-4 pt-6">
-          <div className="flex h-36 items-end gap-3">
+        <Cartao className="overflow-x-auto px-3 pb-4 pt-6 sm:px-5">
+          <div className="flex h-36 items-end gap-2 sm:gap-3" style={{ minWidth: "300px" }}>
             {serie.map((s) => (
-              <div key={s.m} className="flex flex-1 flex-col items-center gap-2">
-                <span className="text-[11px] text-nevoa">{s.v ? brl(s.v).replace(/,\d{2}$/, "") : ""}</span>
+              <div key={s.m} className="flex flex-1 flex-col items-center gap-1.5 sm:gap-2">
+                <span className="whitespace-nowrap text-[10px] sm:text-[11px] text-nevoa">{s.v ? brl(s.v).replace(/,\d{2}$/, "") : ""}</span>
                 <div
                   className={s.m === mes ? "w-full max-w-10 rounded-t-md bg-sol" : "w-full max-w-10 rounded-t-md bg-relevo"}
                   style={{ height: `${Math.max(3, (s.v / maior) * 96)}px` }}
                 />
-                <span className="text-xs text-nevoa">{mesRef(`${s.m}-01`)}</span>
+                <span className="whitespace-nowrap text-[10px] sm:text-xs text-nevoa">{mesRef(`${s.m}-01`)}</span>
               </div>
             ))}
           </div>

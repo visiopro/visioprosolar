@@ -46,14 +46,14 @@ export default async function Faturas({ searchParams }: { searchParams: Promise<
           <Link
             key={f.v}
             href={link(f.v)}
-            className={cx("rounded-full border px-3.5 py-1.5 text-sm", status === f.v ? "border-sol text-sol" : "border-traco text-nevoa hover:text-texto")}
+            className={cx("rounded-full border px-3 py-1 text-xs sm:px-3.5 sm:py-1.5 sm:text-sm", status === f.v ? "border-sol text-sol" : "border-traco text-nevoa hover:text-texto")}
           >
             {f.r}
           </Link>
         ))}
-        <form className="ml-auto flex items-center gap-2">
+        <form className="mt-1 flex w-full items-center gap-2 sm:mt-0 sm:ml-auto sm:w-auto">
           {status ? <input type="hidden" name="status" value={status} /> : null}
-          <input type="month" name="mes" defaultValue={mes} className="campo w-auto py-1.5 text-sm" aria-label="Filtrar por mês" />
+          <input type="month" name="mes" defaultValue={mes} className="campo w-full py-1.5 text-sm sm:w-auto" aria-label="Filtrar por mês" />
           <button className="text-sm text-sol">Filtrar</button>
         </form>
       </div>
@@ -63,15 +63,15 @@ export default async function Faturas({ searchParams }: { searchParams: Promise<
           {faturas.map((f) => {
             const cli = (f.snapshot as { cliente: { nome: string; uc: string } }).cliente;
             return (
-              <Link key={f.id} href={`/faturas/${f.id}`} className="grid grid-cols-[1fr_auto] items-center gap-x-4 px-4 py-3.5 hover:bg-relevo/50">
-                <span className="min-w-0">
-                  <span className="block truncate">{cli.nome}</span>
-                  <span className="text-xs text-nevoa">
+              <Link key={f.id} href={`/faturas/${f.id}`} className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-3 sm:gap-x-4 sm:px-4 hover:bg-relevo/50">
+                <span className="min-w-0 overflow-hidden">
+                  <span className="block truncate text-sm sm:text-base">{cli.nome}</span>
+                  <span className="block truncate text-[11px] sm:text-xs text-nevoa">
                     Nº {nFatura(f.numero)} · ref. {mesRef(f.referencia)} · vence {data(f.vencimento)}
                   </span>
                 </span>
-                <span className="text-right">
-                  <span className={cx("block font-medium", f.status === "cancelada" && "text-nevoa line-through")}>{brl(Number(f.total_centavos))}</span>
+                <span className="shrink-0 text-right">
+                  <span className={cx("block text-sm font-medium sm:text-base", f.status === "cancelada" && "text-nevoa line-through")}>{brl(Number(f.total_centavos))}</span>
                   <Status s={f.status as "pendente"} vencida={f.status === "pendente" && f.vencimento < hoje} />
                 </span>
               </Link>

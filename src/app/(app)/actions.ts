@@ -178,7 +178,7 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
         pix_copia_cola: pix,
         snapshot: {
           cliente: { nome: cliente.nome, documento: cliente.documento, uc: cliente.uc, distribuidora: cliente.distribuidora },
-          usina: { nome: usina.nome, documento: usina.documento, pix_favorecido: usina.pix_favorecido },
+          usina: { nome: usina.nome, documento: usina.documento, pix_favorecido: usina.pix_favorecido, logo_path: usina.logo_path },
         },
       })
       .select("id")
@@ -361,6 +361,18 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
   if (error) return { erro: "Não foi possível salvar." };
   revalidatePath("/", "layout");
   return { ok: "Dados da usina salvos." };
+}
+
+export async function salvarLogo(caminho: string | null): Promise<{ erro?: string }> {
+  const { supabase, usina, papel } = await contexto();
+  if (papel !== "dono") return { erro: "Só o dono da usina altera a logo." };
+  if (caminho !== null && !caminho.startsWith(`${usina.id}/`)) return { erro: "Arquivo inválido." };
+  const { error } = await supabase.from("usinas").update({ logo_path: caminho }).eq("id", usina.id);
+  if (error) return { erro: "Não foi possível salvar a logo." };
+  // apaga a anterior para não acumular arquivos
+  if (usina.logo_path && usina.logo_path !== caminho) await supabase.storage.from("logos").remove([usina.logo_path]);
+  revalidatePath("/", "layout");
+  return {};
 }
 
 export async function convidarMembro(_: Estado, form: FormData): Promise<Estado> {

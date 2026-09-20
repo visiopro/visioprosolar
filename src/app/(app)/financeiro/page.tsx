@@ -89,10 +89,10 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
           { r: "Pago", v: pago, s: totalPagar ? `falta pagar ${brl(totalPagar)}` : undefined },
           { r: "Resultado", v: resultado, c: resultado >= 0 ? "text-economia" : "text-erro" },
         ].map((m) => (
-          <Cartao key={m.r} className="p-4">
-            <p className="text-sm text-nevoa">{m.r}</p>
-            <p className={cx("mt-1 text-2xl font-semibold tracking-tight", m.c)}>{brl(m.v)}</p>
-            {m.s ? <p className="mt-0.5 text-xs text-nevoa">{m.s}</p> : null}
+          <Cartao key={m.r} className="p-3 sm:p-4">
+            <p className="text-xs sm:text-sm text-nevoa">{m.r}</p>
+            <p className={cx("mt-1 text-xl sm:text-2xl font-semibold tracking-tight truncate", m.c)}>{brl(m.v)}</p>
+            {m.s ? <p className="mt-0.5 text-[10px] sm:text-xs text-nevoa truncate">{m.s}</p> : null}
           </Cartao>
         ))}
       </div>
@@ -103,14 +103,14 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
           {receber.length ? (
             <Cartao className="divide-y divide-traco">
               {receber.map((f) => (
-                <Link key={f.id} href={`/faturas/${f.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-relevo/50">
+                <Link key={f.id} href={`/faturas/${f.id}`} className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4 hover:bg-relevo/50">
                   <span className="min-w-0">
-                    <span className="block truncate">{(f.snapshot as { cliente: { nome: string } }).cliente.nome}</span>
-                    <span className="text-xs text-nevoa">vence {data(f.vencimento)}{f.asaas_payment_id ? " · Asaas" : ""}</span>
+                    <span className="block truncate text-sm sm:text-base">{(f.snapshot as { cliente: { nome: string } }).cliente.nome}</span>
+                    <span className="block truncate text-[11px] sm:text-xs text-nevoa">vence {data(f.vencimento)}{f.asaas_payment_id ? " · Asaas" : ""}</span>
                   </span>
-                  <span className="flex items-center gap-2">
+                  <span className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                     <Status s="pendente" vencida={f.vencimento < hoje} />
-                    <span className="font-medium">{brl(Number(f.total_centavos))}</span>
+                    <span className="text-sm sm:text-base font-medium">{brl(Number(f.total_centavos))}</span>
                   </span>
                 </Link>
               ))}
@@ -168,15 +168,15 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
 
       <section>
         <h2 className="mb-3 font-semibold">Fluxo de caixa</h2>
-        <Cartao className="px-5 pb-4 pt-6">
-          <div className="flex h-40 items-end gap-3">
+        <Cartao className="overflow-x-auto px-3 pb-4 pt-6 sm:px-5">
+          <div className="flex h-40 items-end gap-2 sm:gap-3" style={{ minWidth: "280px" }}>
             {serie.map((s) => (
-              <div key={s.m} className="flex flex-1 flex-col items-center gap-2">
-                <div className="flex h-32 items-end gap-1">
-                  <div title={`Entradas ${brl(s.entra)}`} className="w-3.5 rounded-t bg-economia sm:w-5" style={{ height: `${Math.max(2, (s.entra / maior) * 128)}px` }} />
-                  <div title={`Saídas ${brl(s.sai)}`} className="w-3.5 rounded-t bg-nevoa/50 sm:w-5" style={{ height: `${Math.max(2, (s.sai / maior) * 128)}px` }} />
+              <div key={s.m} className="flex flex-1 flex-col items-center gap-1.5 sm:gap-2">
+                <div className="flex h-32 items-end gap-0.5 sm:gap-1">
+                  <div title={`Entradas ${brl(s.entra)}`} className="w-3 rounded-t bg-economia sm:w-5" style={{ height: `${Math.max(2, (s.entra / maior) * 128)}px` }} />
+                  <div title={`Saídas ${brl(s.sai)}`} className="w-3 rounded-t bg-nevoa/50 sm:w-5" style={{ height: `${Math.max(2, (s.sai / maior) * 128)}px` }} />
                 </div>
-                <span className={cx("text-xs", s.m === mes ? "text-sol" : "text-nevoa")}>{mesRef(`${s.m}-01`)}</span>
+                <span className={cx("whitespace-nowrap text-[10px] sm:text-xs", s.m === mes ? "text-sol" : "text-nevoa")}>{mesRef(`${s.m}-01`)}</span>
               </div>
             ))}
           </div>

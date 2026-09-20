@@ -1,6 +1,6 @@
-import { contexto } from "@/lib/usina";
+import { contexto, urlLogo } from "@/lib/usina";
 import { Cabecalho, Cartao } from "@/components/ui";
-import { FormUsina, Equipe, FormAsaas } from "@/components/form-ajustes";
+import { FormUsina, Equipe, FormAsaas, LogoUsina } from "@/components/form-ajustes";
 import { segredosAsaas } from "@/lib/asaas";
 import { sair } from "../actions";
 
@@ -16,6 +16,10 @@ export default async function Ajustes() {
 
       <section>
         <h2 className="mb-3 font-semibold">Dados da usina</h2>
+        <Cartao className="mb-4 p-5 sm:p-6">
+          <p className="mb-3 text-sm text-nevoa">Logo</p>
+          <LogoUsina usinaId={usina.id} url={urlLogo(usina.logo_path)} podeEditar={papel === "dono"} />
+        </Cartao>
         <Cartao className="p-5 sm:p-6">
           <FormUsina usina={usina} podeEditar={papel === "dono"} />
         </Cartao>

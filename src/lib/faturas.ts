@@ -16,7 +16,20 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     .lte("referencia", f.referencia);
   const acumulada = (anteriores ?? []).reduce((soma, r) => soma + Number(r.economia_centavos), 0);
 
+  // logo: a gravada na emissão; faturas antigas usam a logo atual da usina
+  let logoPath: string | null = (f.snapshot as { usina: { logo_path?: string | null } }).usina.logo_path ?? null;
+  if (!logoPath) {
+    const { data: u } = await supabase.from("usinas").select("logo_path").eq("id", f.usina_id).maybeSingle();
+    logoPath = u?.logo_path ?? null;
+  }
+  let logo: Buffer | null = null;
+  if (logoPath) {
+    const { data: arq } = await supabase.storage.from("logos").download(logoPath);
+    if (arq) logo = Buffer.from(await arq.arrayBuffer());
+  }
+
   const dados: DadosFaturaPdf = {
+    logo,
     ...f,
     desconto_valor: Number(f.desconto_valor),
     compensada_kwh: Number(f.compensada_kwh),

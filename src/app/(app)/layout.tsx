@@ -1,4 +1,4 @@
-import { contexto } from "@/lib/usina";
+import { contexto, urlLogo } from "@/lib/usina";
 import Link from "next/link";
 import { Settings } from "lucide-react";
 import { Marca } from "@/components/marca";
@@ -9,6 +9,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[250px_1fr]">
       <aside className="hidden border-r border-traco px-5 py-6 lg:block">
+        {usina.logo_path ? (
+          <div className="mb-3 grid h-16 place-items-center rounded-[var(--radius-campo)] bg-white px-3 py-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={urlLogo(usina.logo_path)!} alt={usina.nome} className="max-h-full max-w-full object-contain" />
+          </div>
+        ) : null}
         <div className="mb-8 flex items-center gap-2.5">
           <Marca />
           <div className="min-w-0">
@@ -19,15 +25,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <NavLateral />
       </aside>
 
-      <div className="min-w-0">
-        <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-traco bg-noite/95 px-5 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] backdrop-blur lg:hidden">
+      <div className="min-w-0 overflow-x-clip">
+        <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-traco bg-noite/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] backdrop-blur sm:px-5 lg:hidden">
           <Marca className="h-6 w-6" />
           <p className="flex-1 truncate font-semibold">{usina.nome}</p>
           <Link href="/configuracoes" aria-label="Ajustes" className="rounded-lg p-1.5 text-nevoa hover:text-texto">
             <Settings size={20} />
           </Link>
         </header>
-        <main className="mx-auto max-w-5xl px-5 pb-32 pt-6 lg:px-10 lg:pb-12 lg:pt-10">{children}</main>
+        <main className="mx-auto max-w-5xl px-4 pb-28 pt-4 sm:px-6 sm:pb-32 sm:pt-6 lg:px-10 lg:pb-12 lg:pt-10">{children}</main>
       </div>
       <NavInferior />
     </div>

@@ -16,7 +16,12 @@ export type Usina = {
   asaas_ambiente: "sandbox" | "producao";
   asaas_forma: "PIX" | "UNDEFINED";
   asaas_notificar: boolean;
+  logo_path: string | null;
 };
+
+/** URL pública da logo (bucket "logos") */
+export const urlLogo = (path: string | null) =>
+  path ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/logos/${path}` : null;
 
 /**
  * Usuário logado + usina em que ele atua.

@@ -26,7 +26,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
 
   const [recebidas, aReceber, despesasMes, atrasadas, pagasSerie, recebidasSerie] = await Promise.all([
     supabase.from("faturas").select("id, total_centavos, valor_recebido_centavos").eq("usina_id", usina.id).eq("status", "paga").gte("paga_em", `${ini}T00:00:00-03:00`).lte("paga_em", `${fim}T23:59:59-03:00`),
-    supabase.from("faturas").select("id, numero, vencimento, total_centavos, snapshot, asaas_payment_id").eq("usina_id", usina.id).eq("status", "pendente").lte("vencimento", fim).order("vencimento"),
+    supabase.from("faturas").select("id, numero, vencimento, total_centavos, snapshot, cobranca_gateway").eq("usina_id", usina.id).eq("status", "pendente").lte("vencimento", fim).order("vencimento"),
     supabase.from("despesas").select("*").eq("usina_id", usina.id).gte("vencimento", ini).lte("vencimento", fim).order("vencimento"),
     supabase.from("despesas").select("*").eq("usina_id", usina.id).is("pago_em", null).lt("vencimento", ini).order("vencimento"),
     supabase.from("despesas").select("valor_centavos, pago_em").eq("usina_id", usina.id).gte("pago_em", iniSerie).lte("pago_em", fim),
@@ -106,7 +106,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
                 <Link key={f.id} href={`/faturas/${f.id}`} className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4 hover:bg-relevo/50">
                   <span className="min-w-0">
                     <span className="block truncate text-sm sm:text-base">{(f.snapshot as { cliente: { nome: string } }).cliente.nome}</span>
-                    <span className="block truncate text-[11px] sm:text-xs text-nevoa">vence {data(f.vencimento)}{f.asaas_payment_id ? " · Asaas" : ""}</span>
+                    <span className="block truncate text-[11px] sm:text-xs text-nevoa">vence {data(f.vencimento)}{f.cobranca_gateway === "asaas" ? " · Asaas" : f.cobranca_gateway === "mercadopago" ? " · Mercado Pago" : ""}</span>
                   </span>
                   <span className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                     <Status s="pendente" vencida={f.vencimento < hoje} />

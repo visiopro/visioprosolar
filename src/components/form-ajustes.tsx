@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { convidarMembro, removerMembro, salvarAsaas, salvarLogo, salvarUsina, type Estado } from "@/app/(app)/actions";
+import { convidarMembro, removerMembro, salvarCobranca, salvarLogo, salvarUsina, type Estado } from "@/app/(app)/actions";
 import { useRouter } from "next/navigation";
 import { ImageUp, Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -109,58 +109,94 @@ function Copiavel({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-export function FormAsaas(p: { usina: Usina; chaveConfigurada: boolean; webhookUrl: string; webhookToken: string | null }) {
-  const [estado, acao, enviando] = useActionState<Estado, FormData>(salvarAsaas, undefined);
+export function FormCobranca(p: {
+  usina: Usina;
+  asaasConfigurado: boolean;
+  mpConfigurado: boolean;
+  webhookUrl: string;
+  webhookToken: string | null;
+}) {
+  const [estado, acao, enviando] = useActionState<Estado, FormData>(salvarCobranca, undefined);
+  const [gateway, setGateway] = useState<Usina["gateway"]>(p.usina.gateway ?? (p.usina.asaas_ativo ? "asaas" : "nenhum"));
+
+  const opcoes: { v: Usina["gateway"]; r: string; d: string }[] = [
+    { v: "nenhum", r: "Desligada", d: "Usa a chave Pix cadastrada em Dados da usina." },
+    { v: "asaas", r: "Asaas", d: "PIX, boleto ou cartão. Baixa automática por webhook." },
+    { v: "mercadopago", r: "Mercado Pago", d: "Só PIX. Baixa automática sem configurar webhook." },
+  ];
+
   return (
     <form action={acao} className="space-y-5">
       <p className="text-sm leading-relaxed text-nevoa">
-        Com o Asaas ligado, cada fatura emitida vira uma cobrança com PIX dinâmico. Quando o cliente paga, a fatura muda para paga sozinha e a taxa do Asaas entra no financeiro.
+        Com a cobrança automática, cada fatura vira uma cobrança com PIX dinâmico. Quando o cliente paga, a fatura muda para paga sozinha e a taxa do serviço entra no financeiro.
       </p>
-      <label className="flex items-center gap-3">
-        <input type="checkbox" name="asaas_ativo" defaultChecked={p.usina.asaas_ativo} className="h-4 w-4 accent-[var(--color-sol)]" />
-        <span>Cobrar pelo Asaas</span>
-      </label>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Campo rotulo="Ambiente" ajuda="Teste no sandbox antes de ir para produção.">
-          <select name="asaas_ambiente" defaultValue={p.usina.asaas_ambiente} className="campo">
-            <option value="sandbox">Sandbox (teste)</option>
-            <option value="producao">Produção</option>
-          </select>
-        </Campo>
-        <Campo rotulo="Forma de pagamento">
-          <select name="asaas_forma" defaultValue={p.usina.asaas_forma} className="campo">
-            <option value="PIX">Só PIX</option>
-            <option value="UNDEFINED">Cliente escolhe (PIX, boleto ou cartão)</option>
-          </select>
-        </Campo>
-        <Campo
-          rotulo="Chave de API"
-          className="sm:col-span-2"
-          ajuda={p.chaveConfigurada ? "Já configurada. Cole uma nova só se quiser trocar." : "No Asaas: Integrações > Chave de API. Ela é guardada só no servidor."}
-        >
-          <input name="asaas_api_key" type="password" autoComplete="off" placeholder={p.chaveConfigurada ? "••••••••••••" : "$aact_..."} className="campo" />
-        </Campo>
-      </div>
-      <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" name="asaas_notificar" defaultChecked={p.usina.asaas_notificar} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />
-        <span>
-          O Asaas avisa o cliente (e-mail e SMS ao criar a cobrança, no vencimento e em atraso)
-          <span className="block text-xs text-nevoa">O Asaas cobra por notificação enviada. Com isso ligado, o app não manda lembretes próprios no WhatsApp.</span>
-        </span>
-      </label>
 
-      {p.webhookToken ? (
-        <div className="space-y-3 rounded-[var(--radius-campo)] border border-traco p-4">
-          <p className="text-sm">
-            Para a baixa automática, crie um webhook no Asaas (Integrações &gt; Webhooks) com os eventos de <b className="font-medium">cobrança</b>, usando:
-          </p>
-          <Copiavel rotulo="URL" valor={p.webhookUrl} />
-          <Copiavel rotulo="Token de autenticação" valor={p.webhookToken} />
+      <div className="grid gap-2 sm:grid-cols-3">
+        {opcoes.map((o) => (
+          <label key={o.v} className={`cursor-pointer rounded-[var(--radius-campo)] border px-3.5 py-3 ${gateway === o.v ? "border-sol bg-sol/5" : "border-traco"}`}>
+            <input type="radio" name="gateway" value={o.v} checked={gateway === o.v} onChange={() => setGateway(o.v)} className="sr-only" />
+            <span className="block text-[15px] font-medium">{o.r}</span>
+            <span className="mt-0.5 block text-xs text-nevoa">{o.d}</span>
+          </label>
+        ))}
+      </div>
+
+      <div className={gateway === "asaas" ? "space-y-5" : "hidden"}>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Campo rotulo="Ambiente" ajuda="Detectado pela chave quando ela começa com $aact_hmlg_ ou $aact_prod_.">
+            <select name="asaas_ambiente" defaultValue={p.usina.asaas_ambiente} className="campo">
+              <option value="sandbox">Sandbox (teste)</option>
+              <option value="producao">Produção</option>
+            </select>
+          </Campo>
+          <Campo rotulo="Forma de pagamento">
+            <select name="asaas_forma" defaultValue={p.usina.asaas_forma} className="campo">
+              <option value="PIX">Só PIX</option>
+              <option value="UNDEFINED">Cliente escolhe (PIX, boleto ou cartão)</option>
+            </select>
+          </Campo>
+          <Campo
+            rotulo="Chave de API do Asaas"
+            className="sm:col-span-2"
+            ajuda={p.asaasConfigurado ? "Já configurada. Cole uma nova só se quiser trocar." : "No Asaas: Integrações > Chave de API. Fica guardada só no servidor."}
+          >
+            <input name="asaas_api_key" type="password" autoComplete="off" placeholder={p.asaasConfigurado ? "••••••••••••" : "$aact_..."} className="campo" />
+          </Campo>
         </div>
-      ) : null}
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" name="asaas_notificar" defaultChecked={p.usina.asaas_notificar} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />
+          <span>
+            O Asaas avisa o cliente (e-mail e SMS ao criar a cobrança, no vencimento e em atraso)
+            <span className="block text-xs text-nevoa">O Asaas cobra por notificação enviada. Com isso ligado, o app não manda lembretes próprios no WhatsApp.</span>
+          </span>
+        </label>
+        {p.webhookToken ? (
+          <div className="space-y-3 rounded-[var(--radius-campo)] border border-traco p-4">
+            <p className="text-sm">
+              Para a baixa automática, crie um webhook no Asaas (Integrações &gt; Webhooks) com os eventos de cobrança, usando:
+            </p>
+            <Copiavel rotulo="URL" valor={p.webhookUrl} />
+            <Copiavel rotulo="Token de autenticação" valor={p.webhookToken} />
+          </div>
+        ) : null}
+      </div>
+
+      <div className={gateway === "mercadopago" ? "space-y-3" : "hidden"}>
+        <Campo
+          rotulo="Access Token do Mercado Pago"
+          ajuda={
+            p.mpConfigurado
+              ? "Já configurado. Cole um novo só se quiser trocar."
+              : "No Mercado Pago: Suas integrações > sua aplicação > Credenciais de produção > Access Token (começa com APP_USR-). Não use a Public Key."
+          }
+        >
+          <input name="mp_access_token" type="password" autoComplete="off" placeholder={p.mpConfigurado ? "••••••••••••" : "APP_USR-..."} className="campo" />
+        </Campo>
+        <p className="text-xs text-nevoa">A baixa automática funciona sozinha: o app informa o endereço de aviso em cada cobrança. A conta precisa ter uma chave Pix cadastrada.</p>
+      </div>
 
       {estado ? <Aviso tipo={estado.erro ? "erro" : "ok"}>{estado.erro ?? estado.ok}</Aviso> : null}
-      <Botao disabled={enviando}>{enviando ? "Conectando…" : "Salvar e testar conexão"}</Botao>
+      <Botao disabled={enviando}>{enviando ? "Conectando…" : gateway === "nenhum" ? "Salvar" : "Salvar e testar conexão"}</Botao>
     </form>
   );
 }

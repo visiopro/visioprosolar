@@ -17,6 +17,7 @@ export type Usina = {
   asaas_forma: "PIX" | "UNDEFINED";
   asaas_notificar: boolean;
   logo_path: string | null;
+  gateway: "nenhum" | "asaas" | "mercadopago";
 };
 
 /** URL pública da logo (bucket "logos") */

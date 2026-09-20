@@ -12,7 +12,7 @@ export default async function Admin() {
   const eu = await exigirSuperAdmin();
   const admin = supabaseAdmin();
   const [{ data: usinas }, { data: membros }, { data: convites }] = await Promise.all([
-    admin.from("usinas").select("id, nome, documento, whatsapp_instancia, asaas_ativo, created_at").order("created_at", { ascending: false }),
+    admin.from("usinas").select("id, nome, documento, whatsapp_instancia, gateway, created_at").order("created_at", { ascending: false }),
     admin.from("usina_membros").select("usina_id, email, papel"),
     admin.from("convites_usina").select("*").order("criado_em", { ascending: false }).limit(50),
   ]);
@@ -64,7 +64,7 @@ export default async function Admin() {
                   <p className="font-medium">{u.nome}</p>
                   <p className="text-xs text-nevoa">
                     {dono?.email ?? "sem dono"} · {equipe} pessoa{equipe > 1 ? "s" : ""} · desde {data(u.created_at)}
-                    {u.asaas_ativo ? " · Asaas ativo" : ""}
+                    {u.gateway === "asaas" ? " · Asaas" : u.gateway === "mercadopago" ? " · Mercado Pago" : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-sm">

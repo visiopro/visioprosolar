@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   const linhas = [
     ["Tipo", "Data", "Descrição", "Categoria", "Valor (R$)", "Situação"].map(cel).join(";"),
     ...(entradas ?? []).map((f) =>
-      ["Entrada", data(f.paga_em), `Fatura ${f.numero} · ${(f.snapshot as { cliente: { nome: string } }).cliente.nome}`, f.pagamento_origem === "asaas" ? "Recebido via Asaas" : "Recebido", reais(Number(f.valor_recebido_centavos ?? f.total_centavos)), "Recebida"].map(cel).join(";"),
+      ["Entrada", data(f.paga_em), `Fatura ${f.numero} · ${(f.snapshot as { cliente: { nome: string } }).cliente.nome}`, f.pagamento_origem === "asaas" ? "Recebido via Asaas" : f.pagamento_origem === "mercadopago" ? "Recebido via Mercado Pago" : "Recebido", reais(Number(f.valor_recebido_centavos ?? f.total_centavos)), "Recebida"].map(cel).join(";"),
     ),
     ...(saidas ?? []).map((d) =>
       ["Saída", data(d.pago_em ?? d.vencimento), d.descricao, CATEGORIAS[d.categoria] ?? d.categoria, reais(Number(d.valor_centavos)), d.pago_em ? "Paga" : "Em aberto"].map(cel).join(";"),

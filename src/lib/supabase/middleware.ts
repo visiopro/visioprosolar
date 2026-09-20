@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLICAS = ["/login", "/auth/callback", "/api/cron", "/api/asaas/webhook"];
+const PUBLICAS = ["/login", "/auth/callback", "/api/cron", "/api/asaas/webhook", "/api/mercadopago/webhook"];
 
 export async function atualizarSessao(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

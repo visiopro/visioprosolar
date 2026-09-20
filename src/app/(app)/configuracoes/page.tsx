@@ -1,13 +1,13 @@
 import { contexto, urlLogo } from "@/lib/usina";
 import { Cabecalho, Cartao } from "@/components/ui";
-import { FormUsina, Equipe, FormAsaas, LogoUsina } from "@/components/form-ajustes";
-import { segredosAsaas } from "@/lib/asaas";
+import { FormUsina, Equipe, FormCobranca, LogoUsina } from "@/components/form-ajustes";
+import { segredos, NOMES_GATEWAY } from "@/lib/cobranca";
 import { sair } from "../actions";
 
 export default async function Ajustes() {
   const { supabase, usina, papel, user } = await contexto();
   const { data: membros } = await supabase.from("usina_membros").select("user_id, email, papel").eq("usina_id", usina.id).order("created_at");
-  const segredos = papel === "dono" ? await segredosAsaas(usina.id).catch(() => ({ apiKey: null, webhookToken: null })) : null;
+  const cred = papel === "dono" ? await segredos(usina.id).catch(() => null) : null;
   const urlWebhook = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/asaas/webhook/${usina.id}`;
 
   return (
@@ -26,17 +26,20 @@ export default async function Ajustes() {
       </section>
 
       <section>
-        <h2 className="mb-3 font-semibold">Cobrança automática (Asaas)</h2>
+        <h2 className="mb-3 font-semibold">Cobrança automática</h2>
         <Cartao className="p-5 sm:p-6">
           {papel === "dono" ? (
-            <FormAsaas
+            <FormCobranca
               usina={usina}
-              chaveConfigurada={!!segredos?.apiKey}
+              asaasConfigurado={!!cred?.asaasKey}
+              mpConfigurado={!!cred?.mpToken}
               webhookUrl={urlWebhook}
-              webhookToken={segredos?.webhookToken ?? null}
+              webhookToken={cred?.asaasWebhookToken ?? null}
             />
           ) : (
-            <p className="text-sm text-nevoa">{usina.asaas_ativo ? "Ativa: as faturas saem com cobrança no Asaas e a baixa é automática." : "Desligada."}</p>
+            <p className="text-sm text-nevoa">
+              {usina.gateway === "nenhum" ? "Desligada." : `Ativa pelo ${NOMES_GATEWAY[usina.gateway]}: as faturas saem com cobrança e a baixa é automática.`}
+            </p>
           )}
         </Cartao>
       </section>

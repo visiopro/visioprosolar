@@ -26,7 +26,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ### 1. Supabase
 1. Crie o projeto e rode as migrações no **SQL Editor**, uma de cada vez e nesta ordem:
-   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql`.
+   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql`.
 2. **Authentication > URL Configuration**
    - Site URL: `https://solar.visiopro.app.br` (a URL final do app)
    - Redirect URLs: `https://solar.visiopro.app.br/auth/callback`
@@ -47,7 +47,17 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 2. No painel **/admin** (só e-mails em `SUPER_ADMIN_EMAILS`), informe a instância na linha da usina. A usina não consegue alterar esse campo: uma instância pertence a uma única usina.
 3. `EVOLUTION_API_URL` e `EVOLUTION_API_KEY` ficam só na Vercel; a usina nunca vê a chave.
 
-### 4. Asaas (cobrança com baixa automática)
+### 4. Cobrança automática (Asaas ou Mercado Pago)
+Cada usina escolhe em **Ajustes > Cobrança automática**. O código de cada serviço fica em `src/lib/cobranca/` (contrato comum em `tipos.ts`); um serviço novo é um arquivo a mais.
+
+**Mercado Pago**
+1. Em mercadopago.com.br/developers, crie uma aplicação (pagamentos online) e copie o **Access Token de produção** (`APP_USR-...`). Não use a Public Key.
+2. A conta precisa ter **chave Pix** cadastrada.
+3. Cole o token em Ajustes e salve. Não há webhook para configurar: cada cobrança já leva o endereço de aviso da usina, e o app confirma o pagamento consultando o Mercado Pago.
+4. O Mercado Pago exige e-mail do pagador; sem e-mail no cadastro do cliente, o app usa um endereço técnico.
+5. Recebido por fora: o PIX do Mercado Pago é cancelado (não existe "recebido em dinheiro" lá). Se desfizer a baixa, gere uma nova cobrança na fatura.
+
+**Asaas**
 1. No Asaas: **Integrações > Chave de API**, gere a chave (sandbox para testar, produção depois).
 2. No app: **Ajustes > Cobrança automática**, cole a chave, escolha o ambiente e salve. O app testa a conexão.
 3. Ainda em Ajustes aparecem a **URL** e o **token** do webhook. No Asaas: **Integrações > Webhooks**, crie um webhook com essa URL, esse token e os eventos de cobrança.

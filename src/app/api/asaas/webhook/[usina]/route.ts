@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { segredosAsaas } from "@/lib/asaas";
+import { segredos } from "@/lib/cobranca";
 
 export const runtime = "nodejs";
 
@@ -29,7 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ usina: 
 
   let webhookToken: string | null = null;
   try {
-    webhookToken = (await segredosAsaas(usina)).webhookToken;
+    webhookToken = (await segredos(usina)).asaasWebhookToken;
   } catch (e) {
     console.error("webhook asaas", e);
     return new Response("erro de configuração", { status: 500 });
@@ -47,7 +47,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ usina: 
     .from("faturas")
     .select("id, status, total_centavos, pagamento_origem")
     .eq("usina_id", usina)
-    .eq("asaas_payment_id", pag.id)
+    .eq("cobranca_gateway", "asaas")
+    .eq("cobranca_id", pag.id)
     .maybeSingle();
   if (!f) return Response.json({ ok: true, ignorado: "fatura não encontrada" });
 

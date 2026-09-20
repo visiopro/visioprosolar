@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { contexto, registrarEvento } from "@/lib/usina";
+import { contexto, registrarEvento, type Usina } from "@/lib/usina";
 import { calcularFatura, type ModoDesconto } from "@/lib/calculo";
 import { gerarPix } from "@/lib/pix";
 import { parseNumeroBR, soDigitos } from "@/lib/format";
@@ -11,8 +11,9 @@ import { pdfDaFatura, legendaWhatsapp } from "@/lib/faturas";
 import { enviarDocumento, enviarTexto } from "@/lib/whatsapp";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
-import { cobrarNoAsaas } from "@/lib/cobranca";
-import { clienteAsaas, segredosAsaas } from "@/lib/asaas";
+import { cobrar, obterGateway, segredos, NOMES_GATEWAY, type NomeGateway } from "@/lib/cobranca";
+import { ambienteDaChave, gatewayAsaas } from "@/lib/cobranca/asaas";
+import { gatewayMercadoPago } from "@/lib/cobranca/mercadopago";
 import { hojeBR } from "@/lib/format";
 import { CATEGORIAS } from "@/lib/financeiro";
 
@@ -207,9 +208,9 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
     }
 
     let aviso: string | undefined;
-    if (usina.asaas_ativo) {
-      const c = await cobrarNoAsaas(supabase, usina, fatura.id);
-      if (c.erro) aviso = `Fatura emitida, mas a cobrança no Asaas não foi criada: ${c.erro}`;
+    if (usina.gateway !== "nenhum") {
+      const c = await cobrar(supabase, usina, fatura.id);
+      if (c.erro) aviso = `Fatura emitida, mas a cobrança no ${NOMES_GATEWAY[usina.gateway]} não foi criada: ${c.erro}`;
     }
     revalidatePath("/");
     revalidatePath("/faturas");
@@ -222,29 +223,29 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
 
 export async function marcarPaga(id: string, paga: boolean): Promise<{ erro?: string }> {
   const { supabase, usina } = await contexto();
-  const { data: f } = await supabase.from("faturas").select("status, total_centavos, asaas_payment_id").eq("id", id).maybeSingle();
+  const { data: f } = await supabase.from("faturas").select("status, total_centavos, cobranca_gateway, cobranca_id").eq("id", id).maybeSingle();
   if (!f || f.status === "cancelada") return { erro: "Fatura não encontrada ou cancelada." };
 
-  // Mantém o Asaas em dia: pagamento recebido por fora vira "recebido em dinheiro" lá
-  if (f.asaas_payment_id && usina.asaas_ativo) {
-    const { apiKey } = await segredosAsaas(usina.id);
-    if (apiKey) {
+  // Mantém o serviço de cobrança em dia com a baixa feita por fora
+  let manterCobranca = true;
+  if (f.cobranca_id && f.cobranca_gateway) {
+    const g = await obterGateway(usina, f.cobranca_gateway as NomeGateway);
+    if (g) {
       try {
-        const asaas = clienteAsaas(apiKey, usina.asaas_ambiente);
-        if (paga) await asaas.receberEmDinheiro(f.asaas_payment_id, hojeBR(), Number(f.total_centavos));
-        else await asaas.desfazerRecebimento(f.asaas_payment_id);
+        manterCobranca = paga ? await g.baixaManual(f.cobranca_id, Number(f.total_centavos), hojeBR()) : await g.desfazerBaixa(f.cobranca_id);
       } catch (e) {
-        return { erro: `Não foi possível atualizar no Asaas: ${e instanceof Error ? e.message : "erro"}` };
+        return { erro: `Não foi possível atualizar no ${NOMES_GATEWAY[g.nome]}: ${e instanceof Error ? e.message : "erro"}` };
       }
     }
   }
+  const semCobranca = manterCobranca ? {} : { cobranca_id: null, cobranca_link: null, cobranca_gateway: null };
 
   await supabase
     .from("faturas")
     .update(
       paga
-        ? { status: "paga", paga_em: new Date().toISOString(), pagamento_origem: "manual", valor_recebido_centavos: f.total_centavos }
-        : { status: "pendente", paga_em: null, pagamento_origem: null, valor_recebido_centavos: null },
+        ? { status: "paga", paga_em: new Date().toISOString(), pagamento_origem: "manual", valor_recebido_centavos: f.total_centavos, ...semCobranca }
+        : { status: "pendente", paga_em: null, pagamento_origem: null, valor_recebido_centavos: null, ...semCobranca },
     )
     .eq("id", id);
   await registrarEvento(supabase, usina.id, paga ? "fatura_paga" : "pagamento_desfeito", id);
@@ -261,15 +262,15 @@ export async function cancelarFatura(_: Estado, form: FormData): Promise<Estado>
   const motivo = txt(form, "motivo");
   if (motivo.length < 5) return { erro: "Descreva o motivo do cancelamento." };
 
-  const { data: atual } = await supabase.from("faturas").select("status, asaas_payment_id").eq("id", id).maybeSingle();
+  const { data: atual } = await supabase.from("faturas").select("status, cobranca_gateway, cobranca_id").eq("id", id).maybeSingle();
   if (!atual || atual.status !== "pendente") return { erro: "Só é possível cancelar faturas pendentes." };
-  if (atual.asaas_payment_id && usina.asaas_ativo) {
-    const { apiKey } = await segredosAsaas(usina.id);
-    if (apiKey) {
+  if (atual.cobranca_id && atual.cobranca_gateway) {
+    const g = await obterGateway(usina, atual.cobranca_gateway as NomeGateway);
+    if (g) {
       try {
-        await clienteAsaas(apiKey, usina.asaas_ambiente).excluirCobranca(atual.asaas_payment_id);
+        await g.cancelar(atual.cobranca_id);
       } catch (e) {
-        return { erro: `O Asaas não excluiu a cobrança: ${e instanceof Error ? e.message : "erro"}. Nada foi cancelado.` };
+        return { erro: `O ${NOMES_GATEWAY[g.nome]} não cancelou a cobrança: ${e instanceof Error ? e.message : "erro"}. Nada foi cancelado.` };
       }
     }
   }
@@ -294,11 +295,11 @@ export async function cancelarFatura(_: Estado, form: FormData): Promise<Estado>
   return { ok: "Fatura cancelada. Você já pode emitir uma nova para esse mês." };
 }
 
-export async function gerarCobrancaAsaas(id: string): Promise<{ erro?: string; ok?: string }> {
+export async function gerarCobranca(id: string): Promise<{ erro?: string; ok?: string }> {
   const { supabase, usina } = await contexto();
-  const r = await cobrarNoAsaas(supabase, usina, id);
+  const r = await cobrar(supabase, usina, id);
   revalidatePath(`/faturas/${id}`);
-  return r.erro ? { erro: r.erro } : { ok: "Cobrança criada no Asaas." };
+  return r.erro ? { erro: r.erro } : { ok: `Cobrança criada no ${usina.gateway === "nenhum" ? "serviço" : NOMES_GATEWAY[usina.gateway]}.` };
 }
 
 export async function enviarWhatsapp(id: string): Promise<{ erro?: string; ok?: string }> {
@@ -408,58 +409,61 @@ export async function removerMembro(userId: string) {
   revalidatePath("/configuracoes");
 }
 
-// ------------------------------------------------------------------ Asaas
+// ------------------------------------------------------------------ cobrança automática
 
-export async function salvarAsaas(_: Estado, form: FormData): Promise<Estado> {
+const limparCredencial = (v: string) => v.replace(/^["']|["']$/g, "").trim();
+
+export async function salvarCobranca(_: Estado, form: FormData): Promise<Estado> {
   const { supabase, usina, papel } = await contexto();
-  if (papel !== "dono") return { erro: "Só o dono da usina configura o Asaas." };
-  // a própria chave diz o ambiente: $aact_hmlg_ = sandbox, $aact_prod_ = produção
-  const colada = txt(form, "asaas_api_key").replace(/^["']|["']$/g, "").trim();
-  const ambiente: "sandbox" | "producao" = colada.startsWith("$aact_hmlg_")
-    ? "sandbox"
-    : colada.startsWith("$aact_prod_")
-      ? "producao"
-      : txt(form, "asaas_ambiente") === "producao"
-        ? "producao"
-        : "sandbox";
-  const forma = txt(form, "asaas_forma") === "UNDEFINED" ? "UNDEFINED" : "PIX";
-  const ativo = form.get("asaas_ativo") === "on";
-  const notificar = form.get("asaas_notificar") === "on";
-  const novaChave = colada;
-  if (novaChave && !novaChave.startsWith("$aact_")) return { erro: "Essa não parece uma chave de API do Asaas (ela começa com $aact_)." };
+  if (papel !== "dono") return { erro: "Só o dono da usina configura a cobrança." };
 
+  const gateway = (["nenhum", "asaas", "mercadopago"].includes(txt(form, "gateway")) ? txt(form, "gateway") : "nenhum") as Usina["gateway"];
+  const chaveAsaas = limparCredencial(txt(form, "asaas_api_key"));
+  const tokenMP = limparCredencial(txt(form, "mp_access_token"));
+  const forma = txt(form, "asaas_forma") === "UNDEFINED" ? "UNDEFINED" : "PIX";
+  const notificar = form.get("asaas_notificar") === "on";
+  let ambiente: "sandbox" | "producao" = txt(form, "asaas_ambiente") === "producao" ? "producao" : "sandbox";
+
+  if (chaveAsaas && !chaveAsaas.startsWith("$aact_")) return { erro: "Essa não parece uma chave do Asaas (ela começa com $aact_)." };
+  if (tokenMP && !/^(APP_USR|TEST)-/.test(tokenMP)) return { erro: "Use o Access Token do Mercado Pago (começa com APP_USR- ou TEST-), não a Public Key." };
+
+  const atuais = await segredos(usina.id);
+  const asaasKey = chaveAsaas || atuais.asaasKey;
+  const mpToken = tokenMP || atuais.mpToken;
+  if (asaasKey) ambiente = ambienteDaChave(asaasKey, ambiente);
+
+  let conectado = "";
   try {
-    const admin = supabaseAdmin();
-    const { apiKey, webhookToken } = await segredosAsaas(usina.id);
-    const chave = novaChave || apiKey;
-    if (ativo && !chave) return { erro: "Cole a chave de API do Asaas para ativar." };
-    if (chave && (novaChave || ativo)) {
-      try {
-        await clienteAsaas(chave, ambiente).testar();
-      } catch (e) {
-        // diagnóstico sem expor a chave: só o prefixo e o tamanho
-        const amb = ambiente === "producao" ? "produção" : "sandbox";
-        return { erro: `${erroDe(e)} Ambiente: ${amb}. Chave começa com ${chave.slice(0, 11)}… e tem ${chave.length} caracteres.` };
-      }
-    }
-    await admin.from("usina_integracoes").upsert({
-      usina_id: usina.id,
-      asaas_api_key: chave,
-      asaas_webhook_token: webhookToken || crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""),
-      updated_at: new Date().toISOString(),
-    });
+    // testa só o que foi colado agora ou o serviço que está sendo ativado
+    if (asaasKey && (chaveAsaas || gateway === "asaas")) {
+      const r = await gatewayAsaas(asaasKey, ambiente, { forma, notificar }).testar();
+      if (gateway === "asaas") conectado = r;
+    } else if (gateway === "asaas") return { erro: "Cole a chave de API do Asaas." };
+
+    if (mpToken && (tokenMP || gateway === "mercadopago")) {
+      const r = await gatewayMercadoPago(mpToken, "").testar();
+      if (gateway === "mercadopago") conectado = r;
+    } else if (gateway === "mercadopago") return { erro: "Cole o Access Token do Mercado Pago." };
   } catch (e) {
-    return { erro: erroDe(e) };
+    const cred = gateway === "mercadopago" || (tokenMP && !chaveAsaas) ? mpToken : asaasKey;
+    return { erro: `${erroDe(e)} A credencial começa com ${(cred ?? "").slice(0, 11)}… e tem ${(cred ?? "").length} caracteres.` };
   }
+
+  await supabaseAdmin().from("usina_integracoes").upsert({
+    usina_id: usina.id,
+    asaas_api_key: asaasKey,
+    asaas_webhook_token: atuais.asaasWebhookToken || crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""),
+    mp_access_token: mpToken,
+    updated_at: new Date().toISOString(),
+  });
 
   const { error } = await supabase
     .from("usinas")
-    .update({ asaas_ativo: ativo, asaas_ambiente: ambiente, asaas_forma: forma, asaas_notificar: notificar })
+    .update({ gateway, asaas_ativo: gateway === "asaas", asaas_ambiente: ambiente, asaas_forma: forma, asaas_notificar: notificar })
     .eq("id", usina.id);
   if (error) return { erro: "Não foi possível salvar." };
   revalidatePath("/", "layout");
-  const nomeAmb = ambiente === "producao" ? "produção" : "sandbox";
-  return { ok: ativo ? `Asaas conectado (${nomeAmb}). As próximas faturas já saem com cobrança.` : `Conexão com o Asaas (${nomeAmb}) testada e salva.` };
+  return { ok: gateway === "nenhum" ? "Cobrança automática desligada." : `${conectado} conectado. As próximas faturas já saem com cobrança.` };
 }
 
 // ------------------------------------------------------------------ financeiro

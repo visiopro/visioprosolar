@@ -26,7 +26,7 @@ export type DadosFaturaPdf = {
   economia_centavos: number;
   economia_acumulada_centavos: number;
   pix_copia_cola: string | null;
-  asaas_link?: string | null;
+  cobranca_link?: string | null;
   snapshot: {
     cliente: { nome: string; documento: string | null; uc: string; distribuidora: string };
     usina: { nome: string; documento: string | null; pix_favorecido: string | null; logo_path?: string | null };
@@ -204,9 +204,9 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
                 <Text style={{ fontSize: 8.5, color: CINZA, marginTop: 2 }}>
                   Aponte a câmera do app do banco para o QR code ou use o copia e cola. Favorecido: {usina.pix_favorecido || usina.nome}.
                 </Text>
-                {f.asaas_link ? (
+                {f.cobranca_link ? (
                   <Text style={{ fontSize: 8.5, color: CINZA, marginTop: 4 }}>
-                    Outras formas de pagamento: <Link src={f.asaas_link} style={{ color: NAVY }}>{f.asaas_link}</Link>
+                    Outras formas de pagamento: <Link src={f.cobranca_link} style={{ color: NAVY }}>{f.cobranca_link}</Link>
                   </Text>
                 ) : null}
                 <View style={{ marginTop: 6 }}>

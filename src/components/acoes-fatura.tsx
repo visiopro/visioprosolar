@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { Copy, Download, ExternalLink, FileImage, Landmark, Loader2, Send } from "lucide-react";
-import { cancelarFatura, enviarWhatsapp, gerarCobrancaAsaas, marcarPaga, type Estado } from "@/app/(app)/actions";
+import { cancelarFatura, enviarWhatsapp, gerarCobranca, marcarPaga, type Estado } from "@/app/(app)/actions";
 import { Aviso, Botao, Campo, Cartao } from "./ui";
 
 export function AcoesFatura(p: {
@@ -11,10 +11,12 @@ export function AcoesFatura(p: {
   pix: string | null;
   podeEnviar: boolean;
   urlConta: string | null;
-  asaasAtivo: boolean;
-  asaasId: string | null;
-  asaasLink: string | null;
+  gatewayAtivo: boolean;
+  cobrancaId: string | null;
+  cobrancaLink: string | null;
+  cobrancaGateway: string | null;
 }) {
+  const servico = p.cobrancaGateway === "mercadopago" ? "Mercado Pago" : "Asaas";
   const [pendente, iniciar] = useTransition();
   const [msg, setMsg] = useState<{ erro?: string; ok?: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
@@ -46,13 +48,13 @@ export function AcoesFatura(p: {
         </Botao>
       ) : null}
 
-      {p.asaasLink ? (
-        <a href={p.asaasLink} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 px-4 py-2 text-sm text-sol hover:underline">
-          <ExternalLink size={16} /> Página de pagamento (Asaas)
+      {p.cobrancaLink && p.status === "pendente" ? (
+        <a href={p.cobrancaLink} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 px-4 py-2 text-sm text-sol hover:underline">
+          <ExternalLink size={16} /> Página de pagamento ({servico})
         </a>
-      ) : p.asaasAtivo && p.status === "pendente" ? (
-        <Botao variante="secundario" className="w-full" disabled={pendente} onClick={() => iniciar(async () => setMsg(await gerarCobrancaAsaas(p.id)))}>
-          <Landmark size={17} /> Gerar cobrança no Asaas
+      ) : !p.cobrancaId && p.gatewayAtivo && p.status === "pendente" ? (
+        <Botao variante="secundario" className="w-full" disabled={pendente} onClick={() => iniciar(async () => setMsg(await gerarCobranca(p.id)))}>
+          <Landmark size={17} /> Gerar cobrança automática
         </Botao>
       ) : null}
 
@@ -75,7 +77,7 @@ export function AcoesFatura(p: {
               })
             }
           >
-            {p.status === "paga" ? "Desfazer pagamento" : p.asaasId ? "Recebi por fora (dinheiro/transferência)" : "Marcar como paga"}
+            {p.status === "paga" ? "Desfazer pagamento" : p.cobrancaId ? "Recebi por fora (dinheiro/transferência)" : "Marcar como paga"}
           </Botao>
           {p.status === "pendente" && !cancelando ? (
             <Botao variante="fantasma" className="w-full text-erro/80 hover:text-erro" onClick={() => setCancelando(true)}>
@@ -90,7 +92,7 @@ export function AcoesFatura(p: {
           <input type="hidden" name="id" value={p.id} />
           <Campo
             rotulo="Motivo do cancelamento"
-            ajuda={p.asaasId ? "A cobrança no Asaas também é excluída. Depois você pode lançar a conta de novo." : "Depois de cancelar, você pode lançar a conta de novo e emitir outra fatura."}
+            ajuda={p.cobrancaId ? `A cobrança no ${servico} também é cancelada. Depois você pode lançar a conta de novo.` : "Depois de cancelar, você pode lançar a conta de novo e emitir outra fatura."}
           >
             <textarea name="motivo" rows={2} required className="campo" />
           </Campo>

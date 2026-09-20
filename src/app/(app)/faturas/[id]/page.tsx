@@ -13,6 +13,9 @@ const NOMES_EVENTO: Record<string, string> = {
   pagamento_desfeito: "Pagamento desfeito",
   fatura_cancelada: "Cancelada",
   cobranca_asaas: "Cobrança criada no Asaas",
+  cobranca_criada: "Cobrança automática criada",
+  pagamento_mp: "Pagamento confirmado pelo Mercado Pago",
+  estorno_mp: "Pagamento estornado no Mercado Pago",
   pagamento_asaas: "Pagamento confirmado pelo Asaas",
   estorno_asaas: "Pagamento estornado no Asaas",
 };
@@ -112,7 +115,7 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
         {f.status === "paga" ? (
           <p className="mt-4 text-sm text-economia">
             Paga em {data(f.paga_em)}
-            {f.pagamento_origem === "asaas" ? " · baixa automática pelo Asaas" : f.pagamento_origem === "manual" ? " · baixa manual" : ""}
+            {f.pagamento_origem === "asaas" ? " · baixa automática pelo Asaas" : f.pagamento_origem === "mercadopago" ? " · baixa automática pelo Mercado Pago" : f.pagamento_origem === "manual" ? " · baixa manual" : ""}
             {f.taxa_centavos ? ` · taxa ${brl(Number(f.taxa_centavos))}` : ""}
           </p>
         ) : null}
@@ -131,9 +134,10 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
           pix={f.pix_copia_cola}
           podeEnviar={!!usina.whatsapp_instancia && !!whats}
           urlConta={urlConta ?? null}
-          asaasAtivo={usina.asaas_ativo}
-          asaasId={f.asaas_payment_id}
-          asaasLink={f.asaas_link}
+          gatewayAtivo={usina.gateway !== "nenhum"}
+          cobrancaId={f.cobranca_id}
+          cobrancaLink={f.cobranca_link}
+          cobrancaGateway={f.cobranca_gateway}
         />
         <section>
           <h2 className="mb-3 text-sm font-semibold">Histórico</h2>

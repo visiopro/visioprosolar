@@ -1,5 +1,13 @@
 import "server-only";
 
+/** Lê a variável tolerando erros comuns de cópia: "NOME=valor", aspas, espaços e barra no fim */
+function variavel(nome: "EVOLUTION_API_URL" | "EVOLUTION_API_KEY") {
+  let v = (process.env[nome] ?? "").trim();
+  if (v.startsWith(`${nome}=`)) v = v.slice(nome.length + 1).trim();
+  v = v.replace(/^["']|["']$/g, "").trim();
+  return nome === "EVOLUTION_API_URL" ? v.replace(/\/+$/, "") : v;
+}
+
 /** Envio pela Evolution API (v2). A instância é configurada por usina. */
 export async function enviarDocumento(p: {
   instancia: string;
@@ -8,10 +16,10 @@ export async function enviarDocumento(p: {
   pdf: Buffer;
   nomeArquivo: string;
 }) {
-  const url = process.env.EVOLUTION_API_URL;
-  const key = process.env.EVOLUTION_API_KEY;
+  const url = variavel("EVOLUTION_API_URL");
+  const key = variavel("EVOLUTION_API_KEY");
   if (!url || !key) throw new Error("WhatsApp não configurado no servidor (EVOLUTION_API_URL / EVOLUTION_API_KEY).");
-  const res = await fetch(`${url.replace(/\/$/, "")}/message/sendMedia/${encodeURIComponent(p.instancia)}`, {
+  const res = await fetch(`${url}/message/sendMedia/${encodeURIComponent(p.instancia)}`, {
     method: "POST",
     headers: { "content-type": "application/json", apikey: key },
     body: JSON.stringify({
@@ -28,10 +36,10 @@ export async function enviarDocumento(p: {
 }
 
 export async function enviarTexto(p: { instancia: string; numero: string; texto: string }) {
-  const url = process.env.EVOLUTION_API_URL;
-  const key = process.env.EVOLUTION_API_KEY;
+  const url = variavel("EVOLUTION_API_URL");
+  const key = variavel("EVOLUTION_API_KEY");
   if (!url || !key) throw new Error("WhatsApp não configurado no servidor.");
-  const res = await fetch(`${url.replace(/\/$/, "")}/message/sendText/${encodeURIComponent(p.instancia)}`, {
+  const res = await fetch(`${url}/message/sendText/${encodeURIComponent(p.instancia)}`, {
     method: "POST",
     headers: { "content-type": "application/json", apikey: key },
     body: JSON.stringify({ number: p.numero, text: p.texto }),

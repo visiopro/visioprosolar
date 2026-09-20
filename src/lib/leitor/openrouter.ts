@@ -1,5 +1,6 @@
 import "server-only";
-import { PROMPT_LEITURA } from "./prompt";
+import { promptLeitura } from "./prompt";
+import { hojeBR } from "../format";
 import { normalizarLeitura, type LeitorDeConta } from "./tipos";
 
 /** Leitor via OpenRouter (formato OpenAI chat/completions) */
@@ -29,7 +30,7 @@ export class LeitorOpenRouter implements LeitorDeConta {
       temperature: 0,
       max_tokens: 4096,
       messages: [
-        { role: "system", content: PROMPT_LEITURA },
+        { role: "system", content: promptLeitura(hojeBR().split("-").reverse().join("/")) },
         { role: "user", content: [anexo, { type: "text", text: "Extraia os dados desta conta." }] },
       ],
     };

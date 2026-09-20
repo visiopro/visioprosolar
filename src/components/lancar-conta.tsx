@@ -312,7 +312,18 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
           {!cliente ? (
             <p className="mt-2 text-sm text-nevoa">Selecione o cliente para ver o cálculo.</p>
           ) : !calculo || "erro" in calculo ? (
-            <p className={cx("mt-2 text-sm", calculo ? "text-erro" : "text-nevoa")}>{calculo && "erro" in calculo ? calculo.erro : "Preencha os campos da conta."}</p>
+            <>
+              <p className={cx("mt-2 text-sm", calculo ? "text-erro" : "text-nevoa")}>{calculo && "erro" in calculo ? calculo.erro : "Preencha os campos da conta."}</p>
+              {calculo && "erro" in calculo && usaCompensada(modo) && !parseNumeroBR(f.compensadaKwh) ? (
+                <p className="mt-2 text-sm text-nevoa">
+                  Se a conta está no nome da usina,{" "}
+                  <Link href={`/clientes/${cliente.id}`} className="text-sol hover:underline">
+                    mude a regra desse cliente para “% sobre a conta cheia”
+                  </Link>
+                  .
+                </p>
+              ) : null}
+            </>
           ) : (
             <div className="mt-3">
               {contaCheia ? (

@@ -35,6 +35,24 @@ function somarTarifa(b: Record<string, unknown>) {
   return numeroOuNulo(b.tarifa);
 }
 
+/**
+ * Prova real da tarifa: quantidade × preço unitário tem que dar o valor da linha.
+ * Se não fechar (tolerância de 1 centavo por linha), algum dígito foi mal lido.
+ */
+function tarifaConfere(b: Record<string, unknown>): boolean | null {
+  const linhas = [
+    [b.tusd_quant, b.tarifa_tusd, b.tusd_valor],
+    [b.te_quant, b.tarifa_te, b.te_valor],
+  ].map((l) => l.map(numeroOuNulo));
+  let verificou = false;
+  for (const [q, p, v] of linhas) {
+    if (q === null || p === null || v === null || q === 0) continue;
+    verificou = true;
+    if (Math.abs(q * p - v) > 0.015) return false;
+  }
+  return verificou ? true : null;
+}
+
 /** Normaliza a resposta do modelo, descartando tipos errados */
 export function normalizarLeitura(bruto: Record<string, unknown>): LeituraConta {
   const ref = textoOuNulo(bruto.referencia, 7);
@@ -60,6 +78,11 @@ export function normalizarLeitura(bruto: Record<string, unknown>): LeituraConta 
   };
   // Campo ausente também precisa de conferência (compensada ausente é normal na conta cheia)
   for (const c of ["uc", "referencia", "consumo_kwh", "tarifa", "valor_conta"]) if (leitura[c as keyof LeituraConta] === null && !duvidosos.includes(c)) duvidosos.push(c);
+  const prova = tarifaConfere(bruto);
+  if (prova === false && !duvidosos.includes("tarifa")) {
+    duvidosos.push("tarifa");
+    leitura.observacoes = [leitura.observacoes, "A tarifa lida não fecha com o valor das linhas TUSD/TE. Confira os dígitos do preço unitário."].filter(Boolean).join(" ");
+  }
   // Tarifa fora da faixa plausível no Brasil
   if (leitura.tarifa !== null && (leitura.tarifa < 0.2 || leitura.tarifa > 3) && !duvidosos.includes("tarifa")) duvidosos.push("tarifa");
   return leitura;

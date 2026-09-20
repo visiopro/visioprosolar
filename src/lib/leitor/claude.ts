@@ -1,5 +1,6 @@
 import "server-only";
-import { PROMPT_LEITURA } from "./prompt";
+import { promptLeitura } from "./prompt";
+import { hojeBR } from "../format";
 import { normalizarLeitura, type LeitorDeConta } from "./tipos";
 
 /** Leitor usando Claude com visão (imagem ou PDF) via Messages API */
@@ -27,7 +28,7 @@ export class LeitorClaude implements LeitorDeConta {
         model: this.modelo,
         max_tokens: 1500,
         temperature: 0,
-        system: PROMPT_LEITURA,
+        system: promptLeitura(hojeBR().split("-").reverse().join("/")),
         messages: [{ role: "user", content: [anexo, { type: "text", text: "Extraia os dados desta conta." }] }],
       }),
       signal: AbortSignal.timeout(60_000),

@@ -413,18 +413,35 @@ export async function removerMembro(userId: string) {
 export async function salvarAsaas(_: Estado, form: FormData): Promise<Estado> {
   const { supabase, usina, papel } = await contexto();
   if (papel !== "dono") return { erro: "Só o dono da usina configura o Asaas." };
-  const ambiente = txt(form, "asaas_ambiente") === "producao" ? "producao" : "sandbox";
+  // a própria chave diz o ambiente: $aact_hmlg_ = sandbox, $aact_prod_ = produção
+  const colada = txt(form, "asaas_api_key").replace(/^["']|["']$/g, "").trim();
+  const ambiente: "sandbox" | "producao" = colada.startsWith("$aact_hmlg_")
+    ? "sandbox"
+    : colada.startsWith("$aact_prod_")
+      ? "producao"
+      : txt(form, "asaas_ambiente") === "producao"
+        ? "producao"
+        : "sandbox";
   const forma = txt(form, "asaas_forma") === "UNDEFINED" ? "UNDEFINED" : "PIX";
   const ativo = form.get("asaas_ativo") === "on";
   const notificar = form.get("asaas_notificar") === "on";
-  const novaChave = txt(form, "asaas_api_key");
+  const novaChave = colada;
+  if (novaChave && !novaChave.startsWith("$aact_")) return { erro: "Essa não parece uma chave de API do Asaas (ela começa com $aact_)." };
 
   try {
     const admin = supabaseAdmin();
     const { apiKey, webhookToken } = await segredosAsaas(usina.id);
     const chave = novaChave || apiKey;
     if (ativo && !chave) return { erro: "Cole a chave de API do Asaas para ativar." };
-    if (chave && (novaChave || ativo)) await clienteAsaas(chave, ambiente).testar();
+    if (chave && (novaChave || ativo)) {
+      try {
+        await clienteAsaas(chave, ambiente).testar();
+      } catch (e) {
+        // diagnóstico sem expor a chave: só o prefixo e o tamanho
+        const amb = ambiente === "producao" ? "produção" : "sandbox";
+        return { erro: `${erroDe(e)} Ambiente: ${amb}. Chave começa com ${chave.slice(0, 11)}… e tem ${chave.length} caracteres.` };
+      }
+    }
     await admin.from("usina_integracoes").upsert({
       usina_id: usina.id,
       asaas_api_key: chave,
@@ -441,7 +458,8 @@ export async function salvarAsaas(_: Estado, form: FormData): Promise<Estado> {
     .eq("id", usina.id);
   if (error) return { erro: "Não foi possível salvar." };
   revalidatePath("/", "layout");
-  return { ok: ativo ? "Asaas conectado. As próximas faturas já saem com cobrança." : "Configuração salva." };
+  const nomeAmb = ambiente === "producao" ? "produção" : "sandbox";
+  return { ok: ativo ? `Asaas conectado (${nomeAmb}). As próximas faturas já saem com cobrança.` : `Conexão com o Asaas (${nomeAmb}) testada e salva.` };
 }
 
 // ------------------------------------------------------------------ financeiro

@@ -32,10 +32,22 @@ export function clienteAsaas(apiKey: string, ambiente: Ambiente) {
       signal: AbortSignal.timeout(20_000),
     });
     const texto = await res.text();
-    const json = texto ? JSON.parse(texto) : {};
+    let json: { errors?: { code?: string; description?: string }[] } & Record<string, unknown> = {};
+    try {
+      json = texto ? JSON.parse(texto) : {};
+    } catch {
+      // resposta não-JSON (ex.: página de erro)
+    }
     if (!res.ok) {
-      const msg = json?.errors?.[0]?.description || `Asaas respondeu ${res.status}.`;
-      throw new ErroAsaas(res.status === 401 ? "Chave do Asaas inválida ou de outro ambiente (sandbox x produção)." : msg);
+      const detalhe = json?.errors?.[0]?.description || texto.slice(0, 200) || "sem detalhes";
+      console.error("asaas", metodo, caminho, res.status, detalhe);
+      throw new ErroAsaas(
+        res.status === 401
+          ? `O Asaas recusou a chave (401: ${detalhe}).`
+          : res.status === 403
+            ? `O Asaas bloqueou o acesso (403: ${detalhe}). Confira se a conta tem lista de IPs autorizados em Integrações.`
+            : `Asaas respondeu ${res.status}: ${detalhe}`,
+      );
     }
     return json as T;
   }

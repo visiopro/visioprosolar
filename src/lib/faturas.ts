@@ -37,7 +37,7 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
   return { fatura: f, pdf, nome };
 }
 
-export function legendaWhatsapp(f: { snapshot: DadosFaturaPdf["snapshot"]; referencia: string; total_centavos: number; vencimento: string; economia_centavos: number }) {
+export function legendaWhatsapp(f: { snapshot: DadosFaturaPdf["snapshot"]; referencia: string; total_centavos: number; vencimento: string; economia_centavos: number; asaas_link?: string | null }) {
   const primeiroNome = f.snapshot.cliente.nome.split(" ")[0];
   return [
     `Olá, ${primeiroNome}! Segue a fatura de energia solar de ${mesRef(f.referencia)} da ${f.snapshot.usina.nome}.`,
@@ -47,5 +47,6 @@ export function legendaWhatsapp(f: { snapshot: DadosFaturaPdf["snapshot"]; refer
     `Economia neste mês: ${brl(Number(f.economia_centavos))}`,
     ``,
     `Na próxima mensagem vai o código PIX copia e cola.`,
+    ...(f.asaas_link ? [``, `Outras formas de pagamento: ${f.asaas_link}`] : []),
   ].join("\n");
 }

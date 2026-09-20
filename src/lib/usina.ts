@@ -12,6 +12,10 @@ export type Usina = {
   pix_cidade: string | null;
   whatsapp_instancia: string | null;
   dias_vencimento: number;
+  asaas_ativo: boolean;
+  asaas_ambiente: "sandbox" | "producao";
+  asaas_forma: "PIX" | "UNDEFINED";
+  asaas_notificar: boolean;
 };
 
 /**

@@ -26,7 +26,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ### 1. Supabase
 1. Crie o projeto e rode as migrações no **SQL Editor**, uma de cada vez e nesta ordem:
-   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql`.
+   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql`.
 2. **Authentication > URL Configuration**
    - Site URL: `https://solar.visiopro.app.br` (a URL final do app)
    - Redirect URLs: `https://solar.visiopro.app.br/auth/callback`
@@ -47,7 +47,16 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 2. No app, em **Ajustes**, preencha **Instância do WhatsApp** com o nome dessa instância.
 3. `EVOLUTION_API_URL` e `EVOLUTION_API_KEY` ficam só na Vercel; a usina nunca vê a chave.
 
-### 4. Primeiro acesso
+### 4. Asaas (cobrança com baixa automática)
+1. No Asaas: **Integrações > Chave de API**, gere a chave (sandbox para testar, produção depois).
+2. No app: **Ajustes > Cobrança automática**, cole a chave, escolha o ambiente e salve. O app testa a conexão.
+3. Ainda em Ajustes aparecem a **URL** e o **token** do webhook. No Asaas: **Integrações > Webhooks**, crie um webhook com essa URL, esse token e os eventos de cobrança.
+4. Teste no sandbox: emita uma fatura, pague a cobrança pelo painel do sandbox e confira se ela vira "paga" sozinha.
+5. Cliente precisa ter **CPF ou CNPJ** cadastrado para ser cobrado pelo Asaas.
+
+Se "O Asaas avisa o cliente" estiver ligado, o Asaas manda e-mail/SMS (com custo por envio) e o app não manda lembretes próprios no WhatsApp para essas faturas.
+
+### 5. Primeiro acesso
 1. Abra o app, **Criar conta da usina**, confirme o e-mail.
 2. Cadastre a usina (vira dono), complete PIX e WhatsApp em **Ajustes**.
 3. Convide operadores em **Ajustes > Equipe**.
@@ -83,8 +92,14 @@ Tudo em centavos inteiros. `npm test` roda os testes do cálculo e do PIX.
 - A foto/PDF original fica guardada no bucket privado `contas`, em pasta da usina.
 - Dados da usina e do cliente são congelados na fatura (`snapshot`): editar o cadastro depois não altera faturas antigas.
 
+## Financeiro
+- **Entradas**: faturas pagas (baixa manual ou automática pelo Asaas), pelo dia do pagamento.
+- **Saídas**: despesas da usina. A conta da distribuidora de cada fatura no modelo "conta cheia" entra sozinha em contas a pagar, com o vencimento lido da conta. A taxa do Asaas de cada pagamento entra sozinha como despesa paga.
+- Despesas recorrentes (mensal, trimestral, anual) e parceladas geram os lançamentos de uma vez.
+- Alerta no painel e no financeiro quando uma conta da distribuidora vence em até 3 dias.
+
 ## Limites conhecidos (v1)
 - Fotos são reduzidas no celular antes do envio. PDFs da conta devem ter até 4 MB (limite de corpo da Vercel).
-- PIX estático: a baixa é manual (**Marcar como paga**). Baixa automática exige integração bancária (fase 2).
+- Sem o Asaas ligado, o PIX é estático e a baixa é manual (**Marcar como paga**).
 - Cada usuário atua em uma usina.
 - Antes de operar, valide o cálculo e a leitura com contas reais da distribuidora de cada cliente.

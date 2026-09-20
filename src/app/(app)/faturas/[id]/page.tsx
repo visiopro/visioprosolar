@@ -12,6 +12,9 @@ const NOMES_EVENTO: Record<string, string> = {
   fatura_paga: "Marcada como paga",
   pagamento_desfeito: "Pagamento desfeito",
   fatura_cancelada: "Cancelada",
+  cobranca_asaas: "Cobrança criada no Asaas",
+  pagamento_asaas: "Pagamento confirmado pelo Asaas",
+  estorno_asaas: "Pagamento estornado no Asaas",
 };
 
 export default async function Fatura({ params }: { params: Promise<{ id: string }> }) {
@@ -106,6 +109,14 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
           </Cartao>
         ) : null}
 
+        {f.status === "paga" ? (
+          <p className="mt-4 text-sm text-economia">
+            Paga em {data(f.paga_em)}
+            {f.pagamento_origem === "asaas" ? " · baixa automática pelo Asaas" : f.pagamento_origem === "manual" ? " · baixa manual" : ""}
+            {f.taxa_centavos ? ` · taxa ${brl(Number(f.taxa_centavos))}` : ""}
+          </p>
+        ) : null}
+
         {f.status === "cancelada" ? (
           <p className="mt-4 text-sm text-nevoa">
             Cancelada em {data(f.cancelada_em)}. Motivo: {f.motivo_cancelamento}
@@ -120,6 +131,9 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
           pix={f.pix_copia_cola}
           podeEnviar={!!usina.whatsapp_instancia && !!whats}
           urlConta={urlConta ?? null}
+          asaasAtivo={usina.asaas_ativo}
+          asaasId={f.asaas_payment_id}
+          asaasLink={f.asaas_link}
         />
         <section>
           <h2 className="mb-3 text-sm font-semibold">Histórico</h2>

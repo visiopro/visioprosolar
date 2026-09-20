@@ -1,11 +1,14 @@
 import { contexto } from "@/lib/usina";
 import { Cabecalho, Cartao } from "@/components/ui";
-import { FormUsina, Equipe } from "@/components/form-ajustes";
+import { FormUsina, Equipe, FormAsaas } from "@/components/form-ajustes";
+import { segredosAsaas } from "@/lib/asaas";
 import { sair } from "../actions";
 
 export default async function Ajustes() {
   const { supabase, usina, papel, user } = await contexto();
   const { data: membros } = await supabase.from("usina_membros").select("user_id, email, papel").eq("usina_id", usina.id).order("created_at");
+  const segredos = papel === "dono" ? await segredosAsaas(usina.id).catch(() => ({ apiKey: null, webhookToken: null })) : null;
+  const urlWebhook = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/asaas/webhook/${usina.id}`;
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -15,6 +18,22 @@ export default async function Ajustes() {
         <h2 className="mb-3 font-semibold">Dados da usina</h2>
         <Cartao className="p-5 sm:p-6">
           <FormUsina usina={usina} podeEditar={papel === "dono"} />
+        </Cartao>
+      </section>
+
+      <section>
+        <h2 className="mb-3 font-semibold">Cobrança automática (Asaas)</h2>
+        <Cartao className="p-5 sm:p-6">
+          {papel === "dono" ? (
+            <FormAsaas
+              usina={usina}
+              chaveConfigurada={!!segredos?.apiKey}
+              webhookUrl={urlWebhook}
+              webhookToken={segredos?.webhookToken ?? null}
+            />
+          ) : (
+            <p className="text-sm text-nevoa">{usina.asaas_ativo ? "Ativa: as faturas saem com cobrança no Asaas e a baixa é automática." : "Desligada."}</p>
+          )}
         </Cartao>
       </section>
 

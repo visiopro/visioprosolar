@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Camera, FileText, LayoutGrid, Settings, Users } from "lucide-react";
+import { Camera, FileText, LayoutGrid, Settings, Users, Wallet } from "lucide-react";
 import { cx } from "./ui";
 
 const itens = [
   { href: "/", rotulo: "Painel", Icone: LayoutGrid },
   { href: "/clientes", rotulo: "Clientes", Icone: Users },
   { href: "/faturas", rotulo: "Faturas", Icone: FileText },
+  { href: "/financeiro", rotulo: "Financeiro", Icone: Wallet },
   { href: "/configuracoes", rotulo: "Ajustes", Icone: Settings },
 ];
 
@@ -43,6 +44,7 @@ export function NavLateral() {
 
 export function NavInferior() {
   const atual = usePathname();
+  // no celular, Ajustes fica no ícone do cabeçalho
   const [a, b, c, d] = itens;
   const Item = ({ href, rotulo, Icone }: (typeof itens)[number]) => (
     <Link

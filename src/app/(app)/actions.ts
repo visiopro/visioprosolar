@@ -11,6 +11,10 @@ import { pdfDaFatura, legendaWhatsapp } from "@/lib/faturas";
 import { enviarDocumento, enviarTexto } from "@/lib/whatsapp";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
+import { cobrarNoAsaas } from "@/lib/cobranca";
+import { clienteAsaas, segredosAsaas } from "@/lib/asaas";
+import { hojeBR } from "@/lib/format";
+import { CATEGORIAS } from "@/lib/financeiro";
 
 export type Estado = { erro?: string; ok?: string } | undefined;
 
@@ -79,13 +83,14 @@ export type DadosEmissao = {
   iluminacao: string;   // R$
   valorConta: string;   // R$ total da conta que chegou
   semUsinaAjustado: string; // R$, vazio = usar o cálculo
+  vencimentoConta: string;  // AAAA-MM-DD da conta da distribuidora (conta no nome da usina)
   vencimento: string;   // AAAA-MM-DD
   confirmado: boolean;
 };
 
 const reaisParaCentavos = (v: string) => Math.round((parseNumeroBR(v) ?? 0) * 100);
 
-export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id?: string }> {
+export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id?: string; aviso?: string }> {
   try {
     const { supabase, usina, user } = await contexto();
     if (!d.confirmado) return { erro: "Confirme que conferiu os dados com a conta original." };
@@ -186,25 +191,68 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
 
     await supabase.from("contas_energia").update({ status: "faturada" }).eq("id", d.contaId);
     await registrarEvento(supabase, usina.id, "fatura_emitida", fatura.id, { total: r.totalCentavos, referencia, ajustado: ajustado !== null });
+
+    // Conta no nome da usina: vira conta a pagar no financeiro
+    if (modo === "percentual_conta_cheia" && valorConta > 0) {
+      const venc = /^\d{4}-\d{2}-\d{2}$/.test(d.vencimentoConta) ? d.vencimentoConta : d.vencimento;
+      await supabase.from("despesas").insert({
+        usina_id: usina.id,
+        descricao: `Conta ${cliente.distribuidora.split(" ")[0]} · ${cliente.nome} · ${d.referencia.split("-").reverse().join("/")}`,
+        categoria: "conta_distribuidora",
+        valor_centavos: valorConta,
+        vencimento: venc,
+        cliente_id: cliente.id,
+        fatura_id: fatura.id,
+      });
+    }
+
+    let aviso: string | undefined;
+    if (usina.asaas_ativo) {
+      const c = await cobrarNoAsaas(supabase, usina, fatura.id);
+      if (c.erro) aviso = `Fatura emitida, mas a cobrança no Asaas não foi criada: ${c.erro}`;
+    }
     revalidatePath("/");
     revalidatePath("/faturas");
-    return { id: fatura.id };
+    revalidatePath("/financeiro");
+    return { id: fatura.id, aviso };
   } catch (e) {
     return { erro: erroDe(e) };
   }
 }
 
-export async function marcarPaga(id: string, paga: boolean) {
+export async function marcarPaga(id: string, paga: boolean): Promise<{ erro?: string }> {
   const { supabase, usina } = await contexto();
+  const { data: f } = await supabase.from("faturas").select("status, total_centavos, asaas_payment_id").eq("id", id).maybeSingle();
+  if (!f || f.status === "cancelada") return { erro: "Fatura não encontrada ou cancelada." };
+
+  // Mantém o Asaas em dia: pagamento recebido por fora vira "recebido em dinheiro" lá
+  if (f.asaas_payment_id && usina.asaas_ativo) {
+    const { apiKey } = await segredosAsaas(usina.id);
+    if (apiKey) {
+      try {
+        const asaas = clienteAsaas(apiKey, usina.asaas_ambiente);
+        if (paga) await asaas.receberEmDinheiro(f.asaas_payment_id, hojeBR(), Number(f.total_centavos));
+        else await asaas.desfazerRecebimento(f.asaas_payment_id);
+      } catch (e) {
+        return { erro: `Não foi possível atualizar no Asaas: ${e instanceof Error ? e.message : "erro"}` };
+      }
+    }
+  }
+
   await supabase
     .from("faturas")
-    .update({ status: paga ? "paga" : "pendente", paga_em: paga ? new Date().toISOString() : null })
-    .eq("id", id)
-    .neq("status", "cancelada");
+    .update(
+      paga
+        ? { status: "paga", paga_em: new Date().toISOString(), pagamento_origem: "manual", valor_recebido_centavos: f.total_centavos }
+        : { status: "pendente", paga_em: null, pagamento_origem: null, valor_recebido_centavos: null },
+    )
+    .eq("id", id);
   await registrarEvento(supabase, usina.id, paga ? "fatura_paga" : "pagamento_desfeito", id);
   revalidatePath(`/faturas/${id}`);
   revalidatePath("/faturas");
+  revalidatePath("/financeiro");
   revalidatePath("/");
+  return {};
 }
 
 export async function cancelarFatura(_: Estado, form: FormData): Promise<Estado> {
@@ -212,6 +260,20 @@ export async function cancelarFatura(_: Estado, form: FormData): Promise<Estado>
   const id = txt(form, "id");
   const motivo = txt(form, "motivo");
   if (motivo.length < 5) return { erro: "Descreva o motivo do cancelamento." };
+
+  const { data: atual } = await supabase.from("faturas").select("status, asaas_payment_id").eq("id", id).maybeSingle();
+  if (!atual || atual.status !== "pendente") return { erro: "Só é possível cancelar faturas pendentes." };
+  if (atual.asaas_payment_id && usina.asaas_ativo) {
+    const { apiKey } = await segredosAsaas(usina.id);
+    if (apiKey) {
+      try {
+        await clienteAsaas(apiKey, usina.asaas_ambiente).excluirCobranca(atual.asaas_payment_id);
+      } catch (e) {
+        return { erro: `O Asaas não excluiu a cobrança: ${e instanceof Error ? e.message : "erro"}. Nada foi cancelado.` };
+      }
+    }
+  }
+
   const { data, error } = await supabase
     .from("faturas")
     .update({ status: "cancelada", cancelada_em: new Date().toISOString(), motivo_cancelamento: motivo })
@@ -221,11 +283,21 @@ export async function cancelarFatura(_: Estado, form: FormData): Promise<Estado>
     .maybeSingle();
   if (error || !data) return { erro: "Só é possível cancelar faturas pendentes." };
   if (data.conta_id) await supabase.from("contas_energia").update({ status: "conferida" }).eq("id", data.conta_id);
+  // a conta da distribuidora ligada a essa fatura sai do financeiro se ainda não foi paga
+  await supabase.from("despesas").delete().eq("fatura_id", id).is("pago_em", null);
   await registrarEvento(supabase, usina.id, "fatura_cancelada", id, { motivo });
   revalidatePath(`/faturas/${id}`);
   revalidatePath("/faturas");
+  revalidatePath("/financeiro");
   revalidatePath("/");
   return { ok: "Fatura cancelada. Você já pode emitir uma nova para esse mês." };
+}
+
+export async function gerarCobrancaAsaas(id: string): Promise<{ erro?: string; ok?: string }> {
+  const { supabase, usina } = await contexto();
+  const r = await cobrarNoAsaas(supabase, usina, id);
+  revalidatePath(`/faturas/${id}`);
+  return r.erro ? { erro: r.erro } : { ok: "Cobrança criada no Asaas." };
 }
 
 export async function enviarWhatsapp(id: string): Promise<{ erro?: string; ok?: string }> {
@@ -322,6 +394,108 @@ export async function removerMembro(userId: string) {
   if (papel !== "dono") return;
   await supabase.from("usina_membros").delete().eq("usina_id", usina.id).eq("user_id", userId);
   revalidatePath("/configuracoes");
+}
+
+// ------------------------------------------------------------------ Asaas
+
+export async function salvarAsaas(_: Estado, form: FormData): Promise<Estado> {
+  const { supabase, usina, papel } = await contexto();
+  if (papel !== "dono") return { erro: "Só o dono da usina configura o Asaas." };
+  const ambiente = txt(form, "asaas_ambiente") === "producao" ? "producao" : "sandbox";
+  const forma = txt(form, "asaas_forma") === "UNDEFINED" ? "UNDEFINED" : "PIX";
+  const ativo = form.get("asaas_ativo") === "on";
+  const notificar = form.get("asaas_notificar") === "on";
+  const novaChave = txt(form, "asaas_api_key");
+
+  try {
+    const admin = supabaseAdmin();
+    const { apiKey, webhookToken } = await segredosAsaas(usina.id);
+    const chave = novaChave || apiKey;
+    if (ativo && !chave) return { erro: "Cole a chave de API do Asaas para ativar." };
+    if (chave && (novaChave || ativo)) await clienteAsaas(chave, ambiente).testar();
+    await admin.from("usina_integracoes").upsert({
+      usina_id: usina.id,
+      asaas_api_key: chave,
+      asaas_webhook_token: webhookToken || crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""),
+      updated_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    return { erro: erroDe(e) };
+  }
+
+  const { error } = await supabase
+    .from("usinas")
+    .update({ asaas_ativo: ativo, asaas_ambiente: ambiente, asaas_forma: forma, asaas_notificar: notificar })
+    .eq("id", usina.id);
+  if (error) return { erro: "Não foi possível salvar." };
+  revalidatePath("/", "layout");
+  return { ok: ativo ? "Asaas conectado. As próximas faturas já saem com cobrança." : "Configuração salva." };
+}
+
+// ------------------------------------------------------------------ financeiro
+
+
+function somarMeses(iso: string, n: number) {
+  const [a, m, d] = iso.split("-").map(Number);
+  const alvo = new Date(Date.UTC(a, m - 1 + n, 1));
+  const ultimo = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
+  alvo.setUTCDate(Math.min(d, ultimo));
+  return alvo.toISOString().slice(0, 10);
+}
+
+export async function salvarDespesa(_: Estado, form: FormData): Promise<Estado> {
+  const { supabase, usina } = await contexto();
+  const descricao = txt(form, "descricao");
+  const categoria = txt(form, "categoria");
+  const valor = Math.round((parseNumeroBR(txt(form, "valor")) ?? 0) * 100);
+  const vencimento = txt(form, "vencimento");
+  const repetir = txt(form, "repetir"); // nenhuma | mensal | trimestral | anual | parcelado
+  const vezes = Math.min(120, Math.max(1, Number(txt(form, "vezes")) || 1));
+  const jaPaga = form.get("paga") === "on";
+
+  if (descricao.length < 2) return { erro: "Descreva a despesa." };
+  if (!CATEGORIAS[categoria]) return { erro: "Escolha a categoria." };
+  if (!(valor > 0)) return { erro: "Informe o valor." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(vencimento)) return { erro: "Informe o vencimento." };
+
+  const passo = { mensal: 1, trimestral: 3, anual: 12, parcelado: 1 }[repetir] ?? 0;
+  const total = passo ? (repetir === "parcelado" ? vezes : Math.min(vezes, repetir === "mensal" ? 24 : 12)) : 1;
+  const grupo = total > 1 ? crypto.randomUUID() : null;
+  const linhas = Array.from({ length: total }, (_, i) => ({
+    usina_id: usina.id,
+    descricao,
+    categoria,
+    valor_centavos: valor,
+    vencimento: somarMeses(vencimento, i * passo),
+    pago_em: jaPaga && i === 0 ? hojeBR() : null,
+    grupo_id: grupo,
+    parcela: total > 1 ? i + 1 : null,
+    parcelas: total > 1 ? total : null,
+    observacao: txt(form, "observacao") || null,
+  }));
+  const { error } = await supabase.from("despesas").insert(linhas);
+  if (error) return { erro: "Não foi possível lançar a despesa." };
+  revalidatePath("/financeiro");
+  return { ok: total > 1 ? `${total} lançamentos criados.` : "Despesa lançada." };
+}
+
+export async function pagarDespesa(id: string, paga: boolean) {
+  const { supabase } = await contexto();
+  await supabase.from("despesas").update({ pago_em: paga ? hojeBR() : null }).eq("id", id);
+  revalidatePath("/financeiro");
+  revalidatePath("/");
+}
+
+export async function excluirDespesa(id: string, serie: boolean) {
+  const { supabase } = await contexto();
+  const { data } = await supabase.from("despesas").select("grupo_id, vencimento").eq("id", id).maybeSingle();
+  if (serie && data?.grupo_id) {
+    // apaga esta e as próximas ainda não pagas da série
+    await supabase.from("despesas").delete().eq("grupo_id", data.grupo_id).gte("vencimento", data.vencimento).is("pago_em", null);
+  } else {
+    await supabase.from("despesas").delete().eq("id", id);
+  }
+  revalidatePath("/financeiro");
 }
 
 export async function sair() {

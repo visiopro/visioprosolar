@@ -19,7 +19,7 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
   const ref = `${mes}-01`;
   const inicioSerie = `${deslocarMes(mes, -5)}-01`;
 
-  const [{ data: faturas }, { data: clientes }, { data: vencendo }] = await Promise.all([
+  const [{ data: faturas }, { data: clientes }, { data: vencendo }, { count: contasUrgentes }] = await Promise.all([
     supabase
       .from("faturas")
       .select("id, cliente_id, referencia, status, total_centavos, economia_centavos, custo_usina_centavos")
@@ -36,6 +36,13 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
       .lte("vencimento", somarDias(hoje, 7))
       .order("vencimento")
       .limit(6),
+    supabase
+      .from("despesas")
+      .select("id", { count: "exact", head: true })
+      .eq("usina_id", usina.id)
+      .eq("categoria", "conta_distribuidora")
+      .is("pago_em", null)
+      .lte("vencimento", somarDias(hoje, 3)),
   ]);
 
   const doMes = (faturas ?? []).filter((f) => f.referencia === ref);
@@ -74,6 +81,15 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
           <ChevronRight size={20} />
         </Link>
       </div>
+
+      {contasUrgentes ? (
+        <Link href="/financeiro" role="alert" className="block rounded-[var(--radius-cartao)] border border-erro/40 bg-erro/5 px-4 py-3 text-sm hover:bg-erro/10">
+          <span className="font-medium text-erro">
+            {contasUrgentes === 1 ? "1 conta da distribuidora vence" : `${contasUrgentes} contas da distribuidora vencem`} em até 3 dias ou já venceram.
+          </span>{" "}
+          <span className="text-nevoa">Ver no financeiro</span>
+        </Link>
+      ) : null}
 
       <Cartao className="flex flex-col items-center px-6 pb-6 pt-8">
         <ArcoSol fracao={faturado ? recebido / faturado : 0} />

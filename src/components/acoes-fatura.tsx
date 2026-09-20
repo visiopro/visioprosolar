@@ -1,11 +1,20 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { Copy, Download, FileImage, Loader2, Send } from "lucide-react";
-import { cancelarFatura, enviarWhatsapp, marcarPaga, type Estado } from "@/app/(app)/actions";
+import { Copy, Download, ExternalLink, FileImage, Landmark, Loader2, Send } from "lucide-react";
+import { cancelarFatura, enviarWhatsapp, gerarCobrancaAsaas, marcarPaga, type Estado } from "@/app/(app)/actions";
 import { Aviso, Botao, Campo, Cartao } from "./ui";
 
-export function AcoesFatura(p: { id: string; status: string; pix: string | null; podeEnviar: boolean; urlConta: string | null }) {
+export function AcoesFatura(p: {
+  id: string;
+  status: string;
+  pix: string | null;
+  podeEnviar: boolean;
+  urlConta: string | null;
+  asaasAtivo: boolean;
+  asaasId: string | null;
+  asaasLink: string | null;
+}) {
   const [pendente, iniciar] = useTransition();
   const [msg, setMsg] = useState<{ erro?: string; ok?: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
@@ -36,6 +45,17 @@ export function AcoesFatura(p: { id: string; status: string; pix: string | null;
           <Copy size={17} /> {copiado ? "PIX copiado" : "Copiar PIX"}
         </Botao>
       ) : null}
+
+      {p.asaasLink ? (
+        <a href={p.asaasLink} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 px-4 py-2 text-sm text-sol hover:underline">
+          <ExternalLink size={16} /> Página de pagamento (Asaas)
+        </a>
+      ) : p.asaasAtivo && p.status === "pendente" ? (
+        <Botao variante="secundario" className="w-full" disabled={pendente} onClick={() => iniciar(async () => setMsg(await gerarCobrancaAsaas(p.id)))}>
+          <Landmark size={17} /> Gerar cobrança no Asaas
+        </Botao>
+      ) : null}
+
       {p.urlConta ? (
         <a href={p.urlConta} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 px-4 py-2 text-sm text-nevoa hover:text-texto">
           <FileImage size={16} /> Ver conta original
@@ -44,8 +64,18 @@ export function AcoesFatura(p: { id: string; status: string; pix: string | null;
 
       {ativa ? (
         <div className="border-t border-traco pt-3">
-          <Botao variante="fantasma" className="w-full" disabled={pendente} onClick={() => iniciar(() => marcarPaga(p.id, p.status !== "paga"))}>
-            {p.status === "paga" ? "Desfazer pagamento" : "Marcar como paga"}
+          <Botao
+            variante="fantasma"
+            className="w-full"
+            disabled={pendente}
+            onClick={() =>
+              iniciar(async () => {
+                const r = await marcarPaga(p.id, p.status !== "paga");
+                setMsg(r.erro ? { erro: r.erro } : null);
+              })
+            }
+          >
+            {p.status === "paga" ? "Desfazer pagamento" : p.asaasId ? "Recebi por fora (dinheiro/transferência)" : "Marcar como paga"}
           </Botao>
           {p.status === "pendente" && !cancelando ? (
             <Botao variante="fantasma" className="w-full text-erro/80 hover:text-erro" onClick={() => setCancelando(true)}>
@@ -58,7 +88,10 @@ export function AcoesFatura(p: { id: string; status: string; pix: string | null;
       {cancelando && p.status === "pendente" ? (
         <form action={cancelar} className="space-y-3 border-t border-traco pt-3">
           <input type="hidden" name="id" value={p.id} />
-          <Campo rotulo="Motivo do cancelamento" ajuda="Depois de cancelar, você pode lançar a conta de novo e emitir outra fatura.">
+          <Campo
+            rotulo="Motivo do cancelamento"
+            ajuda={p.asaasId ? "A cobrança no Asaas também é excluída. Depois você pode lançar a conta de novo." : "Depois de cancelar, você pode lançar a conta de novo e emitir outra fatura."}
+          >
             <textarea name="motivo" rows={2} required className="campo" />
           </Campo>
           <Botao variante="perigo" className="w-full" disabled={enviandoCancel}>

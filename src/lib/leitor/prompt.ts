@@ -30,6 +30,6 @@ Regras:
 - Números em formato JSON (ponto decimal), sem símbolo de moeda.
 - Copie as tarifas dígito por dígito, sem arredondar e sem somar. Use a coluna "PREÇO UNIT. COM TRIB.", não a coluna "TARIFA UNIT." sem tributos.
 - Nunca use o consumo como energia compensada.
-- Multas, juros e correções de contas anteriores NÃO são bandeira nem iluminação pública.
+- Multa, juros, IPCA/correção monetária e débitos de contas anteriores NÃO são bandeira nem iluminação pública. Iluminação pública só aparece como "Contrib. Ilum. Pública", "CIP" ou "COSIP"; se não houver essa linha, use 0.
 - Não invente nada. Campo ilegível ou ausente = null e entra em "duvidosos".
 - Em "observacoes", só avise o que atrapalha a conferência (sombra, corte, foto tremida).`;

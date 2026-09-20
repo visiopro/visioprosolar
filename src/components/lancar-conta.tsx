@@ -55,9 +55,11 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     iluminacao: "",
     valorConta: "",
     semUsinaAjustado: "",
+    vencimentoConta: "",
     vencimento: p.vencimentoPadrao,
     confirmado: false,
   });
+  const [avisoEmissao, setAvisoEmissao] = useState<string | null>(null);
   const [ajustando, setAjustando] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF((a) => ({ ...a, [k]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value }));
@@ -115,6 +117,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
         iluminacao: txt(l?.iluminacao_publica),
         valorConta: txt(l?.valor_conta),
         semUsinaAjustado: "",
+        vencimentoConta: l?.vencimento_conta ?? "",
       }));
       setAjustando(false);
       setEtapa("conferir");
@@ -131,6 +134,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
       const r = await emitirFatura({ ...f, semUsinaAjustado: ajustando ? f.semUsinaAjustado : "", contaId: resp.contaId });
       if (r.erro) setErro(r.erro);
       else {
+        setAvisoEmissao(r.aviso ?? null);
         setEmitida(r.id!);
         setEtapa("emitida");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -151,7 +155,8 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     setEnvio(null);
     setErro(null);
     setAjustando(false);
-    setF({ clienteId: "", uc: "", referencia: "", consumoKwh: "", compensadaKwh: "", tarifa: "", bandeira: "", iluminacao: "", valorConta: "", semUsinaAjustado: "", vencimento: p.vencimentoPadrao, confirmado: false });
+    setF({ clienteId: "", uc: "", referencia: "", consumoKwh: "", compensadaKwh: "", tarifa: "", bandeira: "", iluminacao: "", valorConta: "", semUsinaAjustado: "", vencimentoConta: "", vencimento: p.vencimentoPadrao, confirmado: false });
+    setAvisoEmissao(null);
   }
 
   // ------------------------------------------------------------ etapas
@@ -201,6 +206,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
           <Check size={24} />
         </span>
         <p className="mt-4 text-xl font-semibold">Fatura emitida</p>
+        {avisoEmissao ? <div className="mx-auto mt-3 max-w-md text-left"><Aviso tipo="erro">{avisoEmissao}</Aviso></div> : null}
         <p className="mt-1 text-sm text-nevoa">
           {cliente?.nome} · {calculo && !("erro" in calculo) ? brl(calculo.totalCentavos) : ""}
         </p>
@@ -300,6 +306,11 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
             >
               <input value={f.valorConta} onChange={set("valorConta")} inputMode="decimal" className={cx("campo", duvidoso("valor_conta") && "duvidoso")} />
             </Campo>
+            {contaCheia ? (
+              <Campo rotulo="Vencimento da conta" ajuda="Entra em contas a pagar da usina.">
+                <input type="date" value={f.vencimentoConta} onChange={set("vencimentoConta")} className="campo" />
+              </Campo>
+            ) : null}
           </div>
           {leitura?.duvidosos.length ? <p className="text-xs text-alerta">Campos em laranja: leitura incerta ou ausente. Confira na imagem.</p> : null}
         </Cartao>

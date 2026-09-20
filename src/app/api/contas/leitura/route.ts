@@ -42,7 +42,7 @@ export async function POST(req: Request) {
         ? "Leitura concluída. Confira com atenção os campos destacados."
         : "Leitura concluída. Confira os valores com a conta antes de emitir.";
     } catch (e) {
-      console.error("leitura da conta", e);
+      console.error("leitura da conta falhou:", e instanceof Error ? e.message : e);
       aviso = "A conta foi guardada, mas a leitura automática falhou. Preencha os campos olhando a conta.";
     }
   }

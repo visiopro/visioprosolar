@@ -449,19 +449,26 @@ export async function salvarCobranca(_: Estado, form: FormData): Promise<Estado>
     return { erro: `${erroDe(e)} A credencial começa com ${(cred ?? "").slice(0, 11)}… e tem ${(cred ?? "").length} caracteres.` };
   }
 
-  await supabaseAdmin().from("usina_integracoes").upsert({
+  const { error: erroSegredo } = await supabaseAdmin().from("usina_integracoes").upsert({
     usina_id: usina.id,
     asaas_api_key: asaasKey,
     asaas_webhook_token: atuais.asaasWebhookToken || crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""),
     mp_access_token: mpToken,
     updated_at: new Date().toISOString(),
   });
+  if (erroSegredo) {
+    console.error("salvar credenciais", erroSegredo);
+    return { erro: `Conexão OK, mas não foi possível guardar a credencial: ${erroSegredo.message}. Confira se a migração 0007 foi rodada.` };
+  }
 
   const { error } = await supabase
     .from("usinas")
     .update({ gateway, asaas_ativo: gateway === "asaas", asaas_ambiente: ambiente, asaas_forma: forma, asaas_notificar: notificar })
     .eq("id", usina.id);
-  if (error) return { erro: "Não foi possível salvar." };
+  if (error) {
+    console.error("salvar cobrança", error);
+    return { erro: `Conexão OK, mas não foi possível salvar: ${error.message}. Confira se a migração 0007 foi rodada.` };
+  }
   revalidatePath("/", "layout");
   return { ok: gateway === "nenhum" ? "Cobrança automática desligada." : `${conectado} conectado. As próximas faturas já saem com cobrança.` };
 }

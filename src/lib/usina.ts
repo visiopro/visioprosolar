@@ -18,6 +18,7 @@ export type Usina = {
   asaas_notificar: boolean;
   logo_path: string | null;
   gateway: "nenhum" | "asaas" | "mercadopago";
+  whatsapp_auto: boolean;
 };
 
 /** URL pública da logo (bucket "logos") */

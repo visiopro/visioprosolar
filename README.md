@@ -26,7 +26,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ### 1. Supabase
 1. Crie o projeto e rode as migrações no **SQL Editor**, uma de cada vez e nesta ordem:
-   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql`.
+   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql`.
 2. **Authentication > URL Configuration**
    - Site URL: `https://solar.visiopro.app.br` (a URL final do app)
    - Redirect URLs: `https://solar.visiopro.app.br/auth/callback`
@@ -46,6 +46,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 1. Crie uma instância para a usina e conecte o número dela pelo QR code.
 2. No painel **/admin** (só e-mails em `SUPER_ADMIN_EMAILS`), informe a instância na linha da usina. A usina não consegue alterar esse campo: uma instância pertence a uma única usina.
 3. `EVOLUTION_API_URL` e `EVOLUTION_API_KEY` ficam só na Vercel; a usina nunca vê a chave.
+4. Em **Ajustes > Dados da usina**, o dono pode ligar o envio automático: ao emitir, a fatura (PDF + PIX + link de pagamento) vai sozinha para o WhatsApp do cliente.
 
 ### 4. Cobrança automática (Asaas ou Mercado Pago)
 Cada usina escolhe em **Ajustes > Cobrança automática**. O código de cada serviço fica em `src/lib/cobranca/` (contrato comum em `tipos.ts`); um serviço novo é um arquivo a mais.

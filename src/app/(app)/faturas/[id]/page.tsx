@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { contexto } from "@/lib/usina";
+
+export const maxDuration = 60;
 import { brl, data, hojeBR, mesExtenso, nFatura, numero } from "@/lib/format";
 import { descreverRegra, type ModoDesconto } from "@/lib/calculo";
 import { Cartao, Status } from "@/components/ui";

@@ -1,4 +1,7 @@
 import { contexto } from "@/lib/usina";
+
+// emitir pode incluir cobrança + PDF + WhatsApp: dá mais tempo à função
+export const maxDuration = 60;
 import { hojeBR, somarDias } from "@/lib/format";
 import { LancarConta } from "@/components/lancar-conta";
 import { BotaoLink, Cabecalho, Vazio } from "@/components/ui";

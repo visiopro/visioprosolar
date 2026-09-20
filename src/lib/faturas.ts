@@ -2,6 +2,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DadosFaturaPdf } from "./pdf/fatura";
 import { brl, data, mesRef, nFatura } from "./format";
+import { enviarDocumento, enviarTexto } from "./whatsapp";
+import type { Usina } from "./usina";
 
 /** Carrega a fatura (respeitando o client recebido) e gera o PDF */
 export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
@@ -62,4 +64,27 @@ export function legendaWhatsapp(f: { snapshot: DadosFaturaPdf["snapshot"]; refer
     `Na próxima mensagem vai o código PIX copia e cola.`,
     ...(f.cobranca_link ? [``, `Página de pagamento: ${f.cobranca_link}`] : []),
   ].join("\n");
+}
+
+/** Envia o PDF da fatura, o PIX copia e cola e o link de pagamento no WhatsApp do cliente */
+export async function enviarFaturaPorWhatsapp(supabase: SupabaseClient, usina: Usina, faturaId: string): Promise<{ erro?: string }> {
+  if (!usina.whatsapp_instancia) return { erro: "WhatsApp da usina não conectado. Fale com a VisioPro." };
+  const r = await pdfDaFatura(supabase, faturaId);
+  if (!r) return { erro: "Fatura não encontrada." };
+  if (r.fatura.status === "cancelada") return { erro: "Fatura cancelada não pode ser enviada." };
+  const { data: cliente } = await supabase.from("clientes").select("whatsapp").eq("id", r.fatura.cliente_id).single();
+  if (!cliente?.whatsapp) return { erro: "Cadastre o WhatsApp do cliente para enviar." };
+
+  try {
+    await enviarDocumento({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, legenda: legendaWhatsapp(r.fatura), pdf: r.pdf, nomeArquivo: r.nome });
+    // PIX em mensagem separada: no WhatsApp o cliente copia com um toque
+    if (r.fatura.pix_copia_cola && r.fatura.status === "pendente") {
+      await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto: r.fatura.pix_copia_cola });
+    }
+  } catch (e) {
+    return { erro: e instanceof Error ? e.message : "Falha no envio pelo WhatsApp." };
+  }
+  await supabase.from("faturas").update({ enviada_em: new Date().toISOString() }).eq("id", faturaId);
+  await supabase.from("eventos").insert({ usina_id: usina.id, acao: "fatura_enviada", alvo_id: faturaId });
+  return {};
 }

@@ -7,8 +7,7 @@ import { contexto, registrarEvento, type Usina } from "@/lib/usina";
 import { calcularFatura, type ModoDesconto } from "@/lib/calculo";
 import { gerarPix } from "@/lib/pix";
 import { parseNumeroBR, soDigitos } from "@/lib/format";
-import { pdfDaFatura, legendaWhatsapp } from "@/lib/faturas";
-import { enviarDocumento, enviarTexto } from "@/lib/whatsapp";
+import { enviarFaturaPorWhatsapp } from "@/lib/faturas";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 import { cobrar, obterGateway, segredos, NOMES_GATEWAY, type NomeGateway } from "@/lib/cobranca";
@@ -91,7 +90,7 @@ export type DadosEmissao = {
 
 const reaisParaCentavos = (v: string) => Math.round((parseNumeroBR(v) ?? 0) * 100);
 
-export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id?: string; aviso?: string }> {
+export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id?: string; aviso?: string; enviada?: boolean }> {
   try {
     const { supabase, usina, user } = await contexto();
     if (!d.confirmado) return { erro: "Confirme que conferiu os dados com a conta original." };
@@ -212,10 +211,18 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
       const c = await cobrar(supabase, usina, fatura.id);
       if (c.erro) aviso = `Fatura emitida, mas a cobrança no ${NOMES_GATEWAY[usina.gateway]} não foi criada: ${c.erro}`;
     }
+    // envio automático no WhatsApp (depois da cobrança, para já sair com o PIX dinâmico)
+    let enviada = false;
+    if (usina.whatsapp_auto && usina.whatsapp_instancia && cliente.whatsapp) {
+      const w = await enviarFaturaPorWhatsapp(supabase, usina, fatura.id);
+      if (w.erro) aviso = [aviso, `Não foi enviada no WhatsApp: ${w.erro}`].filter(Boolean).join(" ");
+      else enviada = true;
+    }
+
     revalidatePath("/");
     revalidatePath("/faturas");
     revalidatePath("/financeiro");
-    return { id: fatura.id, aviso };
+    return { id: fatura.id, aviso, enviada };
   } catch (e) {
     return { erro: erroDe(e) };
   }
@@ -305,28 +312,9 @@ export async function gerarCobranca(id: string): Promise<{ erro?: string; ok?: s
 export async function enviarWhatsapp(id: string): Promise<{ erro?: string; ok?: string }> {
   try {
     const { supabase, usina } = await contexto();
-    if (!usina.whatsapp_instancia) return { erro: "Configure a instância do WhatsApp em Ajustes." };
-    const r = await pdfDaFatura(supabase, id);
-    if (!r) return { erro: "Fatura não encontrada." };
-    if (r.fatura.status === "cancelada") return { erro: "Fatura cancelada não pode ser enviada." };
-    const { data: cliente } = await supabase.from("clientes").select("whatsapp").eq("id", r.fatura.cliente_id).single();
-    if (!cliente?.whatsapp) return { erro: "Cadastre o WhatsApp do cliente para enviar." };
-
-    await enviarDocumento({
-      instancia: usina.whatsapp_instancia,
-      numero: cliente.whatsapp,
-      legenda: legendaWhatsapp(r.fatura),
-      pdf: r.pdf,
-      nomeArquivo: r.nome,
-    });
-    // PIX em mensagem separada: no WhatsApp o cliente copia com um toque
-    if (r.fatura.pix_copia_cola && r.fatura.status === "pendente") {
-      await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto: r.fatura.pix_copia_cola });
-    }
-    await supabase.from("faturas").update({ enviada_em: new Date().toISOString() }).eq("id", id);
-    await registrarEvento(supabase, usina.id, "fatura_enviada", id);
+    const r = await enviarFaturaPorWhatsapp(supabase, usina, id);
     revalidatePath(`/faturas/${id}`);
-    return { ok: "Fatura enviada no WhatsApp do cliente." };
+    return r.erro ? { erro: r.erro } : { ok: "Fatura enviada no WhatsApp do cliente." };
   } catch (e) {
     return { erro: erroDe(e) };
   }
@@ -357,6 +345,7 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
       pix_favorecido: favorecido || null,
       pix_cidade: cidade || null,
       dias_vencimento: dias,
+      whatsapp_auto: form.get("whatsapp_auto") === "on",
     })
     .eq("id", usina.id);
   if (error) return { erro: "Não foi possível salvar." };
@@ -411,7 +400,12 @@ export async function removerMembro(userId: string) {
 
 // ------------------------------------------------------------------ cobrança automática
 
-const limparCredencial = (v: string) => v.replace(/^["']|["']$/g, "").trim();
+/** Tira o que costuma vir junto na cópia: espaços, quebras de linha, caracteres invisíveis, aspas e "Bearer " */
+const limparCredencial = (v: string) =>
+  v
+    .replace(/[\u200B-\u200D\uFEFF\s]/g, "")
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/^Bearer/i, "");
 
 export async function salvarCobranca(_: Estado, form: FormData): Promise<Estado> {
   const { supabase, usina, papel } = await contexto();
@@ -425,7 +419,12 @@ export async function salvarCobranca(_: Estado, form: FormData): Promise<Estado>
   let ambiente: "sandbox" | "producao" = txt(form, "asaas_ambiente") === "producao" ? "producao" : "sandbox";
 
   if (chaveAsaas && !chaveAsaas.startsWith("$aact_")) return { erro: "Essa não parece uma chave do Asaas (ela começa com $aact_)." };
-  if (tokenMP && !/^(APP_USR|TEST)-/.test(tokenMP)) return { erro: "Use o Access Token do Mercado Pago (começa com APP_USR- ou TEST-), não a Public Key." };
+  if (tokenMP && !/^(APP_USR|TEST)-/.test(tokenMP)) {
+    return {
+      erro: `O texto colado começa com "${tokenMP.slice(0, 8)}…" e tem ${tokenMP.length} caracteres. O Access Token começa com APP_USR- e é bem longo (cerca de 70 caracteres). Client ID e Client Secret não servem.`,
+    };
+  }
+  if (tokenMP && tokenMP.length < 50) return { erro: "Isso parece a Public Key (curta). Copie o Access Token, que é o campo mais longo." };
 
   const atuais = await segredos(usina.id);
   const asaasKey = chaveAsaas || atuais.asaasKey;

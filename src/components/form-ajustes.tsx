@@ -37,6 +37,13 @@ export function FormUsina({ usina, podeEditar }: { usina: Usina; podeEditar: boo
           <p className="text-sm">
             {usina.whatsapp_instancia ? "Conectado. As faturas podem ser enviadas pelo WhatsApp." : "Não conectado. Fale com a VisioPro para conectar o número da usina."}
           </p>
+          <label className="mt-3 flex items-start gap-3 text-sm">
+            <input type="checkbox" name="whatsapp_auto" defaultChecked={usina.whatsapp_auto} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />
+            <span>
+              Enviar a fatura no WhatsApp do cliente automaticamente ao emitir
+              <span className="block text-xs text-nevoa">Vai o PDF, o código PIX e o link de pagamento. Clientes sem WhatsApp cadastrado ficam para envio manual.</span>
+            </span>
+          </label>
         </div>
       </fieldset>
       {estado ? <Aviso tipo={estado.erro ? "erro" : "ok"}>{estado.erro ?? estado.ok}</Aviso> : null}
@@ -109,28 +116,19 @@ function Copiavel({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-export function FormCobranca(p: {
-  usina: Usina;
-  asaasConfigurado: boolean;
-  mpConfigurado: boolean;
-  webhookUrl: string;
-  webhookToken: string | null;
-}) {
+export function FormCobranca(p: { usina: Usina; asaasConfigurado: boolean; mpConfigurado: boolean; webhookUrl: string; webhookToken: string | null }) {
   const [estado, acao, enviando] = useActionState<Estado, FormData>(salvarCobranca, undefined);
-  const [gateway, setGateway] = useState<Usina["gateway"]>(p.usina.gateway ?? (p.usina.asaas_ativo ? "asaas" : "nenhum"));
-
+  const [gateway, setGateway] = useState<Usina["gateway"]>(p.usina.gateway);
   const opcoes: { v: Usina["gateway"]; r: string; d: string }[] = [
-    { v: "nenhum", r: "Desligada", d: "Usa a chave Pix cadastrada em Dados da usina." },
-    { v: "asaas", r: "Asaas", d: "PIX, boleto ou cartão. Baixa automática por webhook." },
-    { v: "mercadopago", r: "Mercado Pago", d: "Só PIX. Baixa automática sem configurar webhook." },
+    { v: "nenhum", r: "Desligada", d: "PIX fixo da usina e baixa manual." },
+    { v: "asaas", r: "Asaas", d: "PIX dinâmico (e boleto/cartão, se quiser). Avisos por e-mail/SMS." },
+    { v: "mercadopago", r: "Mercado Pago", d: "PIX dinâmico. Não precisa configurar webhook." },
   ];
-
   return (
     <form action={acao} className="space-y-5">
       <p className="text-sm leading-relaxed text-nevoa">
         Com a cobrança automática, cada fatura vira uma cobrança com PIX dinâmico. Quando o cliente paga, a fatura muda para paga sozinha e a taxa do serviço entra no financeiro.
       </p>
-
       <div className="grid gap-2 sm:grid-cols-3">
         {opcoes.map((o) => (
           <label key={o.v} className={`cursor-pointer rounded-[var(--radius-campo)] border px-3.5 py-3 ${gateway === o.v ? "border-sol bg-sol/5" : "border-traco"}`}>
@@ -250,17 +248,12 @@ export function LogoUsina({ usinaId, url, podeEditar }: { usinaId: string; url: 
 
   return (
     <div className="flex flex-wrap items-center gap-5">
-      <div className="flex h-28 w-52 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-traco bg-painel p-3">
+      <div className="grid h-24 w-40 place-items-center rounded-[var(--radius-campo)] border border-traco bg-white p-3">
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={url}
-            alt="Logo da usina"
-            className="max-h-22 max-w-full object-contain"
-            style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-          />
+          <img src={url} alt="Logo da usina" className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className="text-xs text-nevoa">Sem logo</span>
+          <span className="text-xs text-slate-500">Sem logo</span>
         )}
       </div>
       {podeEditar ? (

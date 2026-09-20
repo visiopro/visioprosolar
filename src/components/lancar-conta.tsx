@@ -60,6 +60,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     confirmado: false,
   });
   const [avisoEmissao, setAvisoEmissao] = useState<string | null>(null);
+  const [enviadaAuto, setEnviadaAuto] = useState(false);
   const [ajustando, setAjustando] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF((a) => ({ ...a, [k]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value }));
@@ -135,6 +136,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
       if (r.erro) setErro(r.erro);
       else {
         setAvisoEmissao(r.aviso ?? null);
+        setEnviadaAuto(!!r.enviada);
         setEmitida(r.id!);
         setEtapa("emitida");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -157,6 +159,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     setAjustando(false);
     setF({ clienteId: "", uc: "", referencia: "", consumoKwh: "", compensadaKwh: "", tarifa: "", bandeira: "", iluminacao: "", valorConta: "", semUsinaAjustado: "", vencimentoConta: "", vencimento: p.vencimentoPadrao, confirmado: false });
     setAvisoEmissao(null);
+    setEnviadaAuto(false);
   }
 
   // ------------------------------------------------------------ etapas
@@ -211,7 +214,8 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
           {cliente?.nome} · {calculo && !("erro" in calculo) ? brl(calculo.totalCentavos) : ""}
         </p>
         <div className="mx-auto mt-6 flex max-w-md flex-col gap-2.5">
-          {p.whatsappConfigurado && cliente?.whatsapp && !envio?.ok ? (
+          {enviadaAuto ? <Aviso tipo="ok">Enviada no WhatsApp do cliente.</Aviso> : null}
+          {p.whatsappConfigurado && cliente?.whatsapp && !envio?.ok && !enviadaAuto ? (
             <Botao onClick={mandarWhatsapp} disabled={pendente}>
               {pendente ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />} Enviar no WhatsApp
             </Botao>

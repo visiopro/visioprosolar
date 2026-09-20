@@ -15,6 +15,7 @@ import { ambienteDaChave, gatewayAsaas } from "@/lib/cobranca/asaas";
 import { gatewayMercadoPago } from "@/lib/cobranca/mercadopago";
 import { hojeBR } from "@/lib/format";
 import { CATEGORIAS } from "@/lib/financeiro";
+import { normalizarUC } from "@/lib/leitor/tipos";
 
 export type Estado = { erro?: string; ok?: string } | undefined;
 
@@ -41,7 +42,7 @@ export async function salvarCliente(_: Estado, form: FormData): Promise<Estado> 
   const bruto = {
     nome: txt(form, "nome"),
     documento: txt(form, "documento") || undefined,
-    uc: soDigitos(txt(form, "uc")),
+    uc: normalizarUC(txt(form, "uc")),
     distribuidora: txt(form, "distribuidora"),
     whatsapp: whats ? (whats.startsWith("55") ? whats : `55${whats}`) : undefined,
     email: txt(form, "email") || undefined,
@@ -100,7 +101,7 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
     const { data: cliente } = await supabase.from("clientes").select("*").eq("id", d.clienteId).maybeSingle();
     if (!cliente) return { erro: "Selecione um cliente cadastrado." };
     if (!cliente.ativo) return { erro: "Esse cliente está inativo." };
-    if (soDigitos(d.uc) !== cliente.uc) return { erro: `A UC da conta (${soDigitos(d.uc) || "vazia"}) não é a do cliente (${cliente.uc}).` };
+    if (normalizarUC(d.uc) !== normalizarUC(cliente.uc)) return { erro: `A UC da conta (${normalizarUC(d.uc) || "vazia"}) não é a do cliente (${cliente.uc}).` };
 
     const modo = cliente.modo_desconto as ModoDesconto;
     const consumo = parseNumeroBR(d.consumoKwh);

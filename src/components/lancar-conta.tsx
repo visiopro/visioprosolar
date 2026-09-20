@@ -5,8 +5,8 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { Camera, FileUp, Loader2, Check, Send } from "lucide-react";
 import { emitirFatura, enviarWhatsapp } from "@/app/(app)/actions";
 import { calcularFatura, descreverRegra, usaCompensada, type ModoDesconto } from "@/lib/calculo";
-import { brl, parseNumeroBR, soDigitos } from "@/lib/format";
-import type { LeituraConta } from "@/lib/leitor/tipos";
+import { brl, parseNumeroBR } from "@/lib/format";
+import { normalizarUC, type LeituraConta } from "@/lib/leitor/tipos";
 import { Aviso, Botao, Campo, Cartao, cx } from "./ui";
 
 type Cliente = { id: string; nome: string; uc: string; whatsapp: string | null; modo_desconto: ModoDesconto; desconto_valor: number };
@@ -267,7 +267,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
           {leitura?.uc && !resp?.clienteId ? (
             <p className="text-sm text-alerta">Nenhum cliente com a UC {leitura.uc}. Selecione o cliente ou cadastre essa UC.</p>
           ) : null}
-          {cliente && f.uc && soDigitos(f.uc) !== cliente.uc ? (
+          {cliente && f.uc && normalizarUC(f.uc) !== normalizarUC(cliente.uc) ? (
             <p className="text-sm text-erro">A UC da conta não é a desse cliente ({cliente.uc}).</p>
           ) : null}
 

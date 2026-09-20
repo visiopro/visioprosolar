@@ -26,7 +26,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ### 1. Supabase
 1. Crie o projeto e rode as migrações no **SQL Editor**, uma de cada vez e nesta ordem:
-   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql`.
+   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql` → `0009_uc_sem_zeros.sql`.
 2. **Authentication > URL Configuration**
    - Site URL: `https://solar.visiopro.app.br` (a URL final do app)
    - Redirect URLs: `https://solar.visiopro.app.br/auth/callback`
@@ -85,6 +85,8 @@ fatura do cliente = conta sem usina − X%
 A conta que chega (tarifa mínima) é custo da usina: fica registrada como `custo_usina_centavos` e aparece só para a equipe (resultado por fatura e no painel). Nunca vai para o PDF do cliente. O dono pode ajustar o valor da conta sem usina à mão; a fatura registra que houve ajuste.
 
 A IA lê TUSD e TE separadas e o app soma no código, para evitar erro de conta do modelo.
+
+**Conta que já chega com os créditos (tarifa mínima):** a coluna "CONSUMO kWh" vem descontada (ex.: 11,10 kWh). O app calcula o consumo real pelas leituras do medidor, `(leitura atual − anterior) × constante` (ex.: 5.659 − 5.568 = 91 kWh), e ajusta a bandeira na mesma proporção. Encargos "TUSD GDII"/Fio B, multa e juros ficam só no custo da usina.
 
 **Outros modos** (conta no nome do cliente), com `base = energia compensada × tarifa`:
 

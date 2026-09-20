@@ -4,7 +4,8 @@ export type LeituraConta = {
   referencia: string | null;          // AAAA-MM
   distribuidora: string | null;
   titular: string | null;
-  consumo_kwh: number | null;
+  consumo_kwh: number | null;          // consumo REAL do mês (leitura atual − anterior × constante)
+  consumo_faturado_kwh: number | null; // o que a distribuidora cobrou (com créditos, fica menor que o real)
   compensada_kwh: number | null;
   tarifa: number | null;              // R$/kWh com tributos (TUSD + TE)
   bandeira: number | null;            // R$
@@ -26,6 +27,22 @@ const numeroOuNulo = (v: unknown) => {
   return Number.isFinite(n) && n >= 0 ? n : null;
 };
 const textoOuNulo = (v: unknown, max = 120) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+
+/** UC só com dígitos e sem zeros à esquerda ("0003714154" = "3714154") */
+export const normalizarUC = (v: string) => v.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+
+/**
+ * Consumo real = (leitura atual − anterior) × constante do medidor.
+ * Com créditos da usina, a coluna "CONSUMO kWh" pode vir já descontada (ex.: 11,10 kWh
+ * quando o medidor girou 91 kWh); o que vale para a conta cheia é o que o medidor girou.
+ */
+function consumoReal(b: Record<string, unknown>) {
+  const ant = numeroOuNulo(b.leitura_anterior);
+  const atu = numeroOuNulo(b.leitura_atual);
+  const k = numeroOuNulo(b.constante_medidor) || 1;
+  if (ant !== null && atu !== null && atu > ant) return Math.round((atu - ant) * k * 1000) / 1000;
+  return numeroOuNulo(b.consumo_kwh);
+}
 
 /** TUSD + TE somadas no código (evita erro de conta do modelo) */
 function somarTarifa(b: Record<string, unknown>) {
@@ -62,11 +79,12 @@ export function normalizarLeitura(bruto: Record<string, unknown>): LeituraConta 
     ? bruto.duvidosos.filter((c): c is string => typeof c === "string" && campos.includes(c))
     : [];
   const leitura: LeituraConta = {
-    uc: textoOuNulo(bruto.uc, 40)?.replace(/\D/g, "") || null,
+    uc: normalizarUC(textoOuNulo(bruto.uc, 40) ?? "") || null,
     referencia: ref && /^\d{4}-(0[1-9]|1[0-2])$/.test(ref) ? ref : null,
     distribuidora: textoOuNulo(bruto.distribuidora, 80),
     titular: textoOuNulo(bruto.titular),
-    consumo_kwh: numeroOuNulo(bruto.consumo_kwh),
+    consumo_kwh: consumoReal(bruto),
+    consumo_faturado_kwh: numeroOuNulo(bruto.consumo_kwh),
     compensada_kwh: numeroOuNulo(bruto.compensada_kwh),
     tarifa: somarTarifa(bruto),
     bandeira: numeroOuNulo(bruto.bandeira),
@@ -78,6 +96,18 @@ export function normalizarLeitura(bruto: Record<string, unknown>): LeituraConta 
   };
   // Campo ausente também precisa de conferência (compensada ausente é normal na conta cheia)
   for (const c of ["uc", "referencia", "consumo_kwh", "tarifa", "valor_conta"]) if (leitura[c as keyof LeituraConta] === null && !duvidosos.includes(c)) duvidosos.push(c);
+  // Bandeira proporcional: a conta cobra bandeira só sobre o consumo faturado;
+  // a conta cheia precisa da bandeira sobre o consumo real
+  const quantFaturada = numeroOuNulo(bruto.tusd_quant) ?? leitura.consumo_faturado_kwh;
+  if (leitura.bandeira && quantFaturada && leitura.consumo_kwh && leitura.consumo_kwh > quantFaturada + 0.5) {
+    const cheia = Math.round((leitura.bandeira / quantFaturada) * leitura.consumo_kwh * 100) / 100;
+    leitura.observacoes = [
+      leitura.observacoes,
+      `Conta com créditos: o medidor marcou ${leitura.consumo_kwh} kWh e a distribuidora cobrou ${quantFaturada} kWh. Bandeira ajustada ao consumo real: R$ ${leitura.bandeira.toFixed(2).replace(".", ",")} na conta → R$ ${cheia.toFixed(2).replace(".", ",")}.`,
+    ].filter(Boolean).join(" ");
+    leitura.bandeira = cheia;
+  }
+
   const prova = tarifaConfere(bruto);
   if (prova === false && !duvidosos.includes("tarifa")) {
     duvidosos.push("tarifa");

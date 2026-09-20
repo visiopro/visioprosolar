@@ -371,6 +371,7 @@ export async function convidarMembro(_: Estado, form: FormData): Promise<Estado>
   if (papel !== "dono") return { erro: "Só o dono da usina convida pessoas." };
   const email = txt(form, "email").toLowerCase();
   if (!z.string().email().safeParse(email).success) return { erro: "Informe um e-mail válido." };
+  let jaTinhaConta = false;
   try {
     const admin = supabaseAdmin();
     const volta = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/definir-senha`;
@@ -378,18 +379,26 @@ export async function convidarMembro(_: Estado, form: FormData): Promise<Estado>
     const convite = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: volta });
     if (convite.data.user) userId = convite.data.user.id;
     else {
-      // já tem conta: localizar pelo e-mail
+      // já tem conta: o Supabase não manda convite; só entra na equipe
       const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
       userId = data.users.find((u) => u.email?.toLowerCase() === email)?.id;
+      jaTinhaConta = !!userId;
+      if (!userId) {
+        console.error("convite", convite.error);
+        return { erro: `O e-mail de convite não foi enviado: ${convite.error?.message ?? "erro desconhecido"}.` };
+      }
     }
-    if (!userId) return { erro: "Não foi possível convidar esse e-mail." };
     const { error } = await admin.from("usina_membros").insert({ usina_id: usina.id, user_id: userId, papel: "operador", email });
     if (error) return { erro: error.code === "23505" ? "Essa pessoa já faz parte da equipe." : "Não foi possível adicionar à equipe." };
   } catch (e) {
     return { erro: erroDe(e) };
   }
   revalidatePath("/configuracoes");
-  return { ok: `Convite enviado para ${email}.` };
+  return {
+    ok: jaTinhaConta
+      ? `${email} já tinha conta e foi adicionado à equipe (nenhum e-mail é enviado nesse caso). Ele entra com a senha dele; se não tiver, use "Esqueci a senha" no login.`
+      : `Convite enviado para ${email}. Se não chegar em alguns minutos, confira o spam.`,
+  };
 }
 
 export async function removerMembro(userId: string) {

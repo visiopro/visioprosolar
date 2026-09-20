@@ -9,25 +9,51 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[250px_1fr]">
       <aside className="hidden border-r border-traco px-5 py-6 lg:block">
-        {usina.logo_path ? (
-          <div className="mb-4 flex h-16 w-full items-center justify-center overflow-hidden rounded-[var(--radius-campo)] bg-white p-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={urlLogo(usina.logo_path)!} alt={usina.nome} className="max-h-12 max-w-full object-contain" />
-          </div>
-        ) : null}
-        <div className="mb-8 flex items-center gap-2.5">
-          <Marca />
-          <div className="min-w-0">
-            <p className="truncate font-semibold leading-tight">{usina.nome}</p>
-            <p className="text-xs text-nevoa">VisioPro Solar</p>
-          </div>
+        <div className="mb-8">
+          {usina.logo_path ? (
+            <div className="space-y-3">
+              <div className="flex h-20 w-full items-center justify-center overflow-hidden rounded-xl border border-traco bg-painel/90 p-2.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={urlLogo(usina.logo_path)!}
+                  alt={usina.nome}
+                  className="max-h-16 max-w-full object-contain"
+                  style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                />
+              </div>
+              <div className="min-w-0 px-0.5">
+                <p className="truncate font-semibold leading-tight">{usina.nome}</p>
+                <p className="text-xs text-nevoa">VisioPro Solar</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <Marca />
+              <div className="min-w-0">
+                <p className="truncate font-semibold leading-tight">{usina.nome}</p>
+                <p className="text-xs text-nevoa">VisioPro Solar</p>
+              </div>
+            </div>
+          )}
         </div>
         <NavLateral />
       </aside>
 
       <div className="min-w-0 overflow-x-clip">
         <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-traco bg-noite/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] backdrop-blur sm:px-5 lg:hidden">
-          <Marca className="h-6 w-6" />
+          {usina.logo_path ? (
+            <div className="flex h-8 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-traco bg-painel p-0.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={urlLogo(usina.logo_path)!}
+                alt={usina.nome}
+                className="max-h-full max-w-full object-contain"
+                style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+              />
+            </div>
+          ) : (
+            <Marca className="h-6 w-6" />
+          )}
           <p className="flex-1 truncate font-semibold">{usina.nome}</p>
           <Link href="/configuracoes" aria-label="Ajustes" className="rounded-lg p-1.5 text-nevoa hover:text-texto">
             <Settings size={20} />

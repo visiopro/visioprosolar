@@ -211,12 +211,17 @@ export function LogoUsina({ usinaId, url, podeEditar }: { usinaId: string; url: 
 
   return (
     <div className="flex flex-wrap items-center gap-5">
-      <div className="flex h-24 w-44 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-campo)] border border-traco bg-white p-2">
+      <div className="flex h-28 w-52 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-traco bg-painel p-3">
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt="Logo da usina" className="max-h-20 max-w-full object-contain" />
+          <img
+            src={url}
+            alt="Logo da usina"
+            className="max-h-22 max-w-full object-contain"
+            style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+          />
         ) : (
-          <span className="text-xs text-slate-500">Sem logo</span>
+          <span className="text-xs text-nevoa">Sem logo</span>
         )}
       </div>
       {podeEditar ? (

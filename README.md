@@ -26,7 +26,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ### 1. Supabase
 1. Crie o projeto e rode as migrações no **SQL Editor**, uma de cada vez e nesta ordem:
-   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql`.
+   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql`.
 2. **Authentication > URL Configuration**
    - Site URL: `https://solar.visiopro.app.br` (a URL final do app)
    - Redirect URLs: `https://solar.visiopro.app.br/auth/callback`
@@ -44,7 +44,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ### 3. WhatsApp (Evolution API)
 1. Crie uma instância para a usina e conecte o número dela pelo QR code.
-2. No app, em **Ajustes**, preencha **Instância do WhatsApp** com o nome dessa instância.
+2. No painel **/admin** (só e-mails em `SUPER_ADMIN_EMAILS`), informe a instância na linha da usina. A usina não consegue alterar esse campo: uma instância pertence a uma única usina.
 3. `EVOLUTION_API_URL` e `EVOLUTION_API_KEY` ficam só na Vercel; a usina nunca vê a chave.
 
 ### 4. Asaas (cobrança com baixa automática)
@@ -57,8 +57,9 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 Se "O Asaas avisa o cliente" estiver ligado, o Asaas manda e-mail/SMS (com custo por envio) e o app não manda lembretes próprios no WhatsApp para essas faturas.
 
 ### 5. Primeiro acesso
-1. Abra o app, **Criar conta da usina**, confirme o e-mail.
-2. Cadastre a usina (vira dono), complete PIX e WhatsApp em **Ajustes**.
+1. Em **/admin**, gere um código de convite e envie ao dono da usina.
+2. O dono abre o app, **Criar conta da usina**, confirma o e-mail e informa o código. Cada código cria uma única usina.
+3. Ele completa PIX, logo e Asaas em **Ajustes**.
 3. Convide operadores em **Ajustes > Equipe**.
 
 ## Regras de cálculo
@@ -97,6 +98,15 @@ Tudo em centavos inteiros. `npm test` roda os testes do cálculo e do PIX.
 - **Saídas**: despesas da usina. A conta da distribuidora de cada fatura no modelo "conta cheia" entra sozinha em contas a pagar, com o vencimento lido da conta. A taxa do Asaas de cada pagamento entra sozinha como despesa paga.
 - Despesas recorrentes (mensal, trimestral, anual) e parceladas geram os lançamentos de uma vez.
 - Alerta no painel e no financeiro quando uma conta da distribuidora vence em até 3 dias.
+
+## Segurança multi-usina
+- RLS em todas as tabelas: cada usuário só acessa dados das usinas das quais é membro.
+- Nova usina só com convite da VisioPro (não há criação livre de usina).
+- Gatilhos no banco impedem vincular registros de usinas diferentes e mudar um registro de usina.
+- Valores da fatura ficam travados após a emissão; fatura cancelada não muda mais.
+- Exclusões (clientes, contas, despesas) só pelo dono; operador lê, cria e edita.
+- Chave do Asaas e convites em tabelas sem acesso pelo navegador (só o servidor).
+- Instância do WhatsApp definida só pela VisioPro.
 
 ## Limites conhecidos (v1)
 - Fotos são reduzidas no celular antes do envio. PDFs da conta devem ter até 4 MB (limite de corpo da Vercel).

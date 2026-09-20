@@ -67,7 +67,7 @@ export function NovaDespesa({ hoje }: { hoje: string }) {
   );
 }
 
-export function AcoesDespesa({ id, paga, serie }: { id: string; paga: boolean; serie: boolean }) {
+export function AcoesDespesa({ id, paga, serie, podeExcluir }: { id: string; paga: boolean; serie: boolean; podeExcluir: boolean }) {
   const [pendente, iniciar] = useTransition();
   const [confirmar, setConfirmar] = useState(false);
   if (confirmar) {
@@ -90,7 +90,7 @@ export function AcoesDespesa({ id, paga, serie }: { id: string; paga: boolean; s
       >
         {paga ? <Undo2 size={16} /> : <Check size={16} />}
       </button>
-      {!paga ? (
+      {!paga && podeExcluir ? (
         <button onClick={() => setConfirmar(true)} aria-label="Excluir" title="Excluir" className="rounded-lg p-2 text-nevoa hover:text-erro">
           <Trash2 size={16} />
         </button>

@@ -17,7 +17,7 @@ export default async function Onboarding() {
       <div className="w-full max-w-md">
         <Marca className="h-10 w-10" />
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">Cadastre sua usina</h1>
-        <p className="mt-1 text-sm text-nevoa">Esses dados aparecem nas faturas. Você pode mudar depois em Ajustes.</p>
+        <p className="mt-1 text-sm text-nevoa">Use o código de convite que a VisioPro enviou. Nome e documento aparecem nas faturas e podem ser mudados depois em Ajustes.</p>
         <FormOnboarding />
       </div>
     </main>

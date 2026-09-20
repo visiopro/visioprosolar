@@ -284,7 +284,8 @@ export async function cancelarFatura(_: Estado, form: FormData): Promise<Estado>
   if (error || !data) return { erro: "Só é possível cancelar faturas pendentes." };
   if (data.conta_id) await supabase.from("contas_energia").update({ status: "conferida" }).eq("id", data.conta_id);
   // a conta da distribuidora ligada a essa fatura sai do financeiro se ainda não foi paga
-  await supabase.from("despesas").delete().eq("fatura_id", id).is("pago_em", null);
+  // (feito pelo servidor: o operador cancela a fatura, mas não apaga despesas diretamente)
+  await supabaseAdmin().from("despesas").delete().eq("fatura_id", id).eq("usina_id", usina.id).is("pago_em", null);
   await registrarEvento(supabase, usina.id, "fatura_cancelada", id, { motivo });
   revalidatePath(`/faturas/${id}`);
   revalidatePath("/faturas");
@@ -354,7 +355,6 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
       pix_chave: pixChave || null,
       pix_favorecido: favorecido || null,
       pix_cidade: cidade || null,
-      whatsapp_instancia: txt(form, "whatsapp_instancia") || null,
       dias_vencimento: dias,
     })
     .eq("id", usina.id);
@@ -499,7 +499,8 @@ export async function pagarDespesa(id: string, paga: boolean) {
 }
 
 export async function excluirDespesa(id: string, serie: boolean) {
-  const { supabase } = await contexto();
+  const { supabase, papel } = await contexto();
+  if (papel !== "dono") return;
   const { data } = await supabase.from("despesas").select("grupo_id, vencimento").eq("id", id).maybeSingle();
   if (serie && data?.grupo_id) {
     // apaga esta e as próximas ainda não pagas da série

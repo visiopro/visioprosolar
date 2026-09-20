@@ -32,9 +32,12 @@ export function FormUsina({ usina, podeEditar }: { usina: Usina; podeEditar: boo
         <Campo rotulo="Cidade do PIX" ajuda="Até 15 letras.">
           <input name="pix_cidade" maxLength={15} defaultValue={usina.pix_cidade ?? ""} className="campo" />
         </Campo>
-        <Campo rotulo="Instância do WhatsApp" ajuda="Nome da instância conectada na Evolution API. Sem ela, o envio automático fica desligado." className="sm:col-span-2">
-          <input name="whatsapp_instancia" defaultValue={usina.whatsapp_instancia ?? ""} className="campo" />
-        </Campo>
+        <div className="sm:col-span-2">
+          <p className="mb-1.5 text-sm text-nevoa">WhatsApp</p>
+          <p className="text-sm">
+            {usina.whatsapp_instancia ? "Conectado. As faturas podem ser enviadas pelo WhatsApp." : "Não conectado. Fale com a VisioPro para conectar o número da usina."}
+          </p>
+        </div>
       </fieldset>
       {estado ? <Aviso tipo={estado.erro ? "erro" : "ok"}>{estado.erro ?? estado.ok}</Aviso> : null}
       {podeEditar ? (

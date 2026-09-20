@@ -8,6 +8,9 @@ export function FormOnboarding() {
   const [estado, acao, enviando] = useActionState(criarUsina, undefined);
   return (
     <form action={acao} className="mt-8 space-y-4">
+      <Campo rotulo="Código de convite" ajuda="Enviado pela VisioPro. Ex.: ABCDE-23456">
+        <input name="codigo" required autoComplete="off" className="campo uppercase tracking-wider" placeholder="XXXXX-XXXXX" />
+      </Campo>
       <Campo rotulo="Nome da usina">
         <input name="nome" required className="campo" placeholder="Ex.: Usina Solar Planalto" />
       </Campo>

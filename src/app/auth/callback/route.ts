@@ -5,7 +5,9 @@ import { supabaseServer } from "@/lib/supabase/server";
 /** Retorno de convites, confirmação de e-mail e recuperação de senha */
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const next = url.searchParams.get("next")?.startsWith("/") ? url.searchParams.get("next")! : "/";
+  // só caminhos internos: "//site.com" e "/\\site.com" levariam para fora
+  const pedido = url.searchParams.get("next") ?? "/";
+  const next = /^\/(?![\/\\])/.test(pedido) ? pedido : "/";
   const supabase = await supabaseServer();
 
   const code = url.searchParams.get("code");

@@ -10,7 +10,8 @@ export const maxDuration = 300;
  * 2 dias antes do vencimento, ou no dia seguinte ao vencimento se ainda não houve lembrete.
  */
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  const segredo = process.env.CRON_SECRET;
+  if (!segredo || segredo.length < 16 || req.headers.get("authorization") !== `Bearer ${segredo}`) {
     return new Response("Não autorizado", { status: 401 });
   }
   const admin = supabaseAdmin();

@@ -16,7 +16,7 @@ const fimDoMes = (mes: string) => {
 };
 
 export default async function Financeiro({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
-  const { supabase, usina } = await contexto();
+  const { supabase, usina, papel } = await contexto();
   const hoje = hojeBR();
   const q = (await searchParams).mes;
   const mes = q && /^\d{4}-(0[1-9]|1[0-2])$/.test(q) ? q : hoje.slice(0, 7);
@@ -135,7 +135,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
                     <span className="font-medium">{brl(Number(d.valor_centavos))}</span>
-                    <AcoesDespesa id={d.id} paga={false} serie={!!d.grupo_id} />
+                    <AcoesDespesa id={d.id} paga={false} serie={!!d.grupo_id} podeExcluir={papel === "dono"} />
                   </span>
                 </div>
               ))}
@@ -158,7 +158,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   <span>{brl(Number(d.valor_centavos))}</span>
-                  <AcoesDespesa id={d.id} paga serie={!!d.grupo_id} />
+                  <AcoesDespesa id={d.id} paga serie={!!d.grupo_id} podeExcluir={papel === "dono"} />
                 </span>
               </div>
             ))}

@@ -1,9 +1,10 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { DadosFaturaPdf } from "./pdf/fatura";
+import { gerarPdfFatura, type DadosFaturaPdf } from "./pdf/fatura";
 import { brl, data, mesRef, nFatura } from "./format";
 import { enviarDocumento, enviarTexto } from "./whatsapp";
 import type { Usina } from "./usina";
+import { segredos } from "./cobranca";
 
 /** Carrega a fatura (respeitando o client recebido) e gera o PDF */
 export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
@@ -46,7 +47,6 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     economia_centavos: Number(f.economia_centavos),
     economia_acumulada_centavos: acumulada,
   };
-  const { gerarPdfFatura } = await import("./pdf/fatura");
   const pdf = await gerarPdfFatura(dados);
   const nome = `Fatura_${nFatura(f.numero)}_${mesRef(f.referencia).replace("/", "-")}.pdf`;
   return { fatura: f, pdf, nome };
@@ -76,10 +76,11 @@ export async function enviarFaturaPorWhatsapp(supabase: SupabaseClient, usina: U
   if (!cliente?.whatsapp) return { erro: "Cadastre o WhatsApp do cliente para enviar." };
 
   try {
-    await enviarDocumento({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, legenda: legendaWhatsapp(r.fatura), pdf: r.pdf, nomeArquivo: r.nome });
+    const token = (await segredos(usina.id)).evolutionToken;
+    await enviarDocumento({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, legenda: legendaWhatsapp(r.fatura), pdf: r.pdf, nomeArquivo: r.nome, token });
     // PIX em mensagem separada: no WhatsApp o cliente copia com um toque
     if (r.fatura.pix_copia_cola && r.fatura.status === "pendente") {
-      await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto: r.fatura.pix_copia_cola });
+      await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto: r.fatura.pix_copia_cola, token });
     }
   } catch (e) {
     return { erro: e instanceof Error ? e.message : "Falha no envio pelo WhatsApp." };

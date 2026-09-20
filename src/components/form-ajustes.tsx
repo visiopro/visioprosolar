@@ -20,6 +20,12 @@ export function FormUsina({ usina, podeEditar }: { usina: Usina; podeEditar: boo
         <Campo rotulo="CNPJ ou CPF">
           <input name="documento" defaultValue={usina.documento ?? ""} className="campo" />
         </Campo>
+        <Campo
+          rotulo="Bandeira tarifária (R$/kWh)"
+          ajuda="Usada só quando a conta não traz a linha de bandeira. Quando traz, o app usa o valor da própria conta. Ex.: bandeira amarela ≈ 0,0254."
+        >
+          <input name="bandeira_padrao" inputMode="decimal" defaultValue={usina.bandeira_padrao ? String(usina.bandeira_padrao).replace(".", ",") : ""} placeholder="0,0254" className="campo" />
+        </Campo>
         <Campo rotulo="Prazo de vencimento (dias)" ajuda="Contados a partir do lançamento da conta.">
           <input name="dias_vencimento" type="number" min={1} max={60} defaultValue={usina.dias_vencimento} className="campo" />
         </Campo>

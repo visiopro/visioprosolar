@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { enviarTexto } from "@/lib/whatsapp";
+import { segredos } from "@/lib/cobranca";
 import { brl, data, hojeBR, mesRef, somarDias } from "@/lib/format";
 
 export const runtime = "nodejs";
@@ -44,7 +45,8 @@ export async function GET(req: Request) {
       `\nSe já pagou, desconsidere esta mensagem.`,
     ].join("\n");
     try {
-      await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto });
+      const token = (await segredos(f.usina_id)).evolutionToken;
+      await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto, token });
       await admin.from("faturas").update({ lembrete_em: new Date().toISOString() }).eq("id", f.id);
       await admin.from("eventos").insert({ usina_id: f.usina_id, user_id: null, acao: "lembrete_enviado", alvo_id: f.id });
       enviados++;

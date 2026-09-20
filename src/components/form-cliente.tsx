@@ -15,6 +15,8 @@ export type ClienteForm = {
   email?: string | null;
   modo_desconto?: ModoDesconto;
   desconto_valor?: number;
+  cip_modo?: "da_conta" | "percentual" | "fixo";
+  cip_valor?: number;
 };
 
 const DISTRIBUIDORAS = ["Coelba (Neoenergia)", "Cemig", "Enel", "CPFL", "Light", "Equatorial", "Energisa", "Celesc", "Copel", "RGE"];
@@ -22,6 +24,7 @@ const DISTRIBUIDORAS = ["Coelba (Neoenergia)", "Cemig", "Enel", "CPFL", "Light",
 export function FormCliente({ c = {} }: { c?: ClienteForm }) {
   const [estado, acao, enviando] = useActionState<Estado, FormData>(salvarCliente, undefined);
   const [modo, setModo] = useState<ModoDesconto>(c.modo_desconto ?? "percentual_conta_cheia");
+  const [cip, setCip] = useState<NonNullable<ClienteForm["cip_modo"]>>(c.cip_modo ?? "da_conta");
 
   return (
     <form action={acao} className="space-y-5">
@@ -78,6 +81,33 @@ export function FormCliente({ c = {} }: { c?: ClienteForm }) {
             className="campo"
           />
         </Campo>
+      </fieldset>
+
+      <fieldset className="rounded-[var(--radius-cartao)] border border-traco p-4">
+        <legend className="px-1.5 text-sm font-medium">Iluminação pública (CIP)</legend>
+        <p className="mb-3 text-xs text-nevoa">
+          Na conta em nome da usina a CIP costuma vir como valor mínimo fixo. Aqui você diz quanto o cliente pagaria sem a usina.
+        </p>
+        <div className="grid grid-cols-1 gap-2">
+          {[
+            { v: "da_conta" as const, r: "Usar o valor da conta", a: "Se a conta não tiver CIP, fica zero." },
+            { v: "percentual" as const, r: "% sobre o valor da energia", a: "Municípios que cobram por faixa de consumo, como Vitória da Conquista." },
+            { v: "fixo" as const, r: "Valor fixo por mês", a: "Quando o município cobra um valor fixo." },
+          ].map((o) => (
+            <label key={o.v} className={`flex cursor-pointer gap-3 rounded-[var(--radius-campo)] border px-3.5 py-3 ${cip === o.v ? "border-sol bg-sol/5" : "border-traco"}`}>
+              <input type="radio" name="cip_modo" value={o.v} checked={cip === o.v} onChange={() => setCip(o.v)} className="mt-1 accent-[var(--color-sol)]" />
+              <span>
+                <span className="block text-[15px]">{o.r}</span>
+                <span className="block text-xs text-nevoa">{o.a}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {cip !== "da_conta" ? (
+          <Campo rotulo={cip === "percentual" ? "Alíquota (%)" : "Valor (R$)"} className="mt-4 max-w-48">
+            <input name="cip_valor" required inputMode="decimal" defaultValue={c.cip_valor ? String(c.cip_valor).replace(".", ",") : ""} placeholder={cip === "percentual" ? "7" : "30,00"} className="campo" />
+          </Campo>
+        ) : null}
       </fieldset>
 
       {estado?.erro ? <Aviso tipo="erro">{estado.erro}</Aviso> : null}

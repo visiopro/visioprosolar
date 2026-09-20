@@ -36,6 +36,12 @@ export async function definirInstancia(usinaId: string, _: { erro?: string; ok?:
   }
   const { error } = await admin.from("usinas").update({ whatsapp_instancia: instancia || null }).eq("id", usinaId);
   if (error) return { erro: "Não foi possível salvar." };
+  const token = String(form.get("token") ?? "").trim();
+  const limpar = form.get("limpar_token") === "on";
+  if (token || limpar || !instancia) {
+    const { error: e2 } = await admin.from("usina_integracoes").upsert({ usina_id: usinaId, evolution_token: limpar || !instancia ? null : token, updated_at: new Date().toISOString() });
+    if (e2) return { erro: `Instância salva, mas o token não: ${e2.message}. Rode a migração 0010.` };
+  }
   revalidatePath("/admin");
   return { ok: "Salvo." };
 }

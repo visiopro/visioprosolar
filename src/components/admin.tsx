@@ -42,13 +42,27 @@ export function RevogarConvite({ codigo }: { codigo: string }) {
   );
 }
 
-export function Instancia({ usinaId, atual }: { usinaId: string; atual: string | null }) {
+export function Instancia({ usinaId, atual, temToken }: { usinaId: string; atual: string | null; temToken?: boolean }) {
   const [estado, acao, enviando] = useActionState(definirInstancia.bind(null, usinaId), undefined);
   return (
-    <form action={acao} className="flex items-center gap-2">
-      <input name="instancia" defaultValue={atual ?? ""} placeholder="instância" className="campo w-40 py-1.5 text-sm" />
-      <button disabled={enviando} className="text-sm text-sol hover:underline">Salvar</button>
-      {estado?.erro ? <span className="text-xs text-erro">{estado.erro}</span> : estado?.ok ? <span className="text-xs text-economia">{estado.ok}</span> : null}
+    <form action={acao} className="space-y-2">
+      <input name="instancia" defaultValue={atual ?? ""} placeholder="nome da instância (sem espaço)" className="campo py-1.5 text-sm" />
+      <input
+        name="token"
+        type="password"
+        autoComplete="off"
+        placeholder={temToken ? "token da instância: ••••••• (cole outro para trocar)" : "token da instância (opcional)"}
+        className="campo py-1.5 text-sm"
+      />
+      {temToken ? (
+        <label className="flex items-center gap-2 text-xs text-nevoa">
+          <input type="checkbox" name="limpar_token" /> Remover token e usar a chave global
+        </label>
+      ) : null}
+      <div className="flex items-center gap-3">
+        <button disabled={enviando} className="text-sm text-sol hover:underline">Salvar</button>
+        {estado?.erro ? <span className="text-xs text-erro">{estado.erro}</span> : estado?.ok ? <span className="text-xs text-economia">{estado.ok}</span> : null}
+      </div>
     </form>
   );
 }

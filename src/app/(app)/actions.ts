@@ -32,6 +32,8 @@ const esquemaCliente = z.object({
   whatsapp: z.string().regex(/^55\d{10,11}$/, "WhatsApp: use 55 + DDD + número.").optional(),
   email: z.string().email("E-mail inválido.").optional(),
   modo_desconto: z.enum(["percentual_conta_cheia", "percentual_compensada", "percentual_gasto_total", "tarifa_fixa"]),
+  cip_modo: z.enum(["da_conta", "percentual", "fixo"]),
+  cip_valor: z.number().min(0),
   desconto_valor: z.number({ invalid_type_error: "Informe o desconto." }).min(0),
 });
 
@@ -48,10 +50,14 @@ export async function salvarCliente(_: Estado, form: FormData): Promise<Estado> 
     email: txt(form, "email") || undefined,
     modo_desconto: txt(form, "modo_desconto"),
     desconto_valor: parseNumeroBR(txt(form, "desconto_valor")) ?? NaN,
+    cip_modo: txt(form, "cip_modo") || "da_conta",
+    cip_valor: parseNumeroBR(txt(form, "cip_valor")) ?? 0,
   };
   const v = esquemaCliente.safeParse(bruto);
   if (!v.success) return { erro: v.error.issues[0].message };
   if (v.data.modo_desconto !== "tarifa_fixa" && v.data.desconto_valor > 100) return { erro: "O desconto não pode passar de 100%." };
+  if (v.data.cip_modo === "percentual" && v.data.cip_valor > 30) return { erro: "A alíquota da iluminação pública parece alta demais (máximo 30%)." };
+  if (v.data.cip_modo !== "da_conta" && !(v.data.cip_valor > 0)) return { erro: "Informe o valor da iluminação pública." };
 
   const linha = { ...v.data, documento: v.data.documento ?? null, whatsapp: v.data.whatsapp ?? null, email: v.data.email ?? null, usina_id: usina.id };
   const { error } = id
@@ -347,6 +353,7 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
       pix_cidade: cidade || null,
       dias_vencimento: dias,
       whatsapp_auto: form.get("whatsapp_auto") === "on",
+      bandeira_padrao: Math.max(0, parseNumeroBR(txt(form, "bandeira_padrao")) ?? 0),
     })
     .eq("id", usina.id);
   if (error) return { erro: "Não foi possível salvar." };

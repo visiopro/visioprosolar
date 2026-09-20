@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { brl, data, hojeBR, mesRef, nFatura } from "@/lib/format";
 import { Cartao, Status } from "@/components/ui";
 import { AdicionarOperador, Instancia, NovaSenha } from "@/components/admin";
+import { segredos } from "@/lib/cobranca";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,7 @@ export default async function UsinaAdmin({ params }: { params: Promise<{ id: str
     admin.auth.admin.listUsers({ perPage: 1000 }),
   ]);
   if (!u) notFound();
+  const temToken = !!(await segredos(u.id).catch(() => null))?.evolutionToken;
 
   const acesso = new Map((usuarios?.users ?? []).map((x) => [x.id, x.last_sign_in_at]));
   const doMes = (faturas ?? []).filter((f) => f.referencia === mes && f.status !== "cancelada");
@@ -94,8 +96,8 @@ export default async function UsinaAdmin({ params }: { params: Promise<{ id: str
 
           <h2 className="mb-3 mt-6 font-semibold">WhatsApp</h2>
           <Cartao className="p-4">
-            <Instancia usinaId={u.id} atual={u.whatsapp_instancia} />
-            <p className="mt-2 text-xs text-nevoa">Envio automático ao emitir: {u.whatsapp_auto ? "ligado" : "desligado"}</p>
+            <Instancia usinaId={u.id} atual={u.whatsapp_instancia} temToken={temToken} />
+            <p className="mt-2 text-xs text-nevoa">Sem token, usa a chave global (EVOLUTION_API_KEY). Envio automático ao emitir: {u.whatsapp_auto ? "ligado" : "desligado"}.</p>
           </Cartao>
         </section>
 

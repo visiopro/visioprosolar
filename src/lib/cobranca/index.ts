@@ -12,13 +12,14 @@ export { NOMES_GATEWAY, type NomeGateway } from "./tipos";
 export async function segredos(usinaId: string) {
   const { data } = await supabaseAdmin()
     .from("usina_integracoes")
-    .select("asaas_api_key, asaas_webhook_token, mp_access_token")
+    .select("asaas_api_key, asaas_webhook_token, mp_access_token, evolution_token")
     .eq("usina_id", usinaId)
     .maybeSingle();
   return {
     asaasKey: (data?.asaas_api_key as string | null) ?? null,
     asaasWebhookToken: (data?.asaas_webhook_token as string | null) ?? null,
     mpToken: (data?.mp_access_token as string | null) ?? null,
+    evolutionToken: (data?.evolution_token as string | null) ?? null,
   };
 }
 

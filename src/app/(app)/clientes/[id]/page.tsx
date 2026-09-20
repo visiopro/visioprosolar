@@ -23,7 +23,7 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
       <div>
         <Cabecalho titulo={c.nome} sub={`UC ${c.uc}${c.ativo ? "" : " · inativo"}`} />
         <Cartao className="p-5 sm:p-6">
-          <FormCliente c={{ ...c, modo_desconto: c.modo_desconto as ModoDesconto, desconto_valor: Number(c.desconto_valor) }} />
+          <FormCliente c={{ ...c, modo_desconto: c.modo_desconto as ModoDesconto, desconto_valor: Number(c.desconto_valor), cip_modo: c.cip_modo, cip_valor: Number(c.cip_valor ?? 0) }} />
         </Cartao>
         <form action={alternarCliente.bind(null, c.id, !c.ativo)} className="mt-4">
           <Botao variante={c.ativo ? "perigo" : "secundario"} type="submit">

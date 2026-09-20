@@ -22,7 +22,7 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
   const [{ data: faturas }, { data: clientes }, { data: vencendo }] = await Promise.all([
     supabase
       .from("faturas")
-      .select("id, cliente_id, referencia, status, total_centavos, economia_centavos")
+      .select("id, cliente_id, referencia, status, total_centavos, economia_centavos, custo_usina_centavos")
       .eq("usina_id", usina.id)
       .neq("status", "cancelada")
       .gte("referencia", inicioSerie)
@@ -42,6 +42,7 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
   const faturado = doMes.reduce((s, f) => s + Number(f.total_centavos), 0);
   const recebido = doMes.filter((f) => f.status === "paga").reduce((s, f) => s + Number(f.total_centavos), 0);
   const economia = doMes.reduce((s, f) => s + Number(f.economia_centavos), 0);
+  const custo = doMes.reduce((s, f) => s + Number(f.custo_usina_centavos ?? 0), 0);
   const comFatura = new Set(doMes.map((f) => f.cliente_id));
   const semFatura = (clientes ?? []).filter((c) => !comFatura.has(c.id));
 
@@ -94,6 +95,12 @@ export default async function Painel({ searchParams }: { searchParams: Promise<{
             <p className="text-xs text-nevoa">economia gerada</p>
           </div>
         </div>
+        {custo > 0 ? (
+          <p className="mt-5 w-full rounded-[var(--radius-campo)] bg-relevo px-4 py-3 text-center text-sm text-nevoa">
+            Contas pagas à distribuidora: {brl(custo)} · Resultado do mês{" "}
+            <span className={faturado - custo >= 0 ? "font-semibold text-economia" : "font-semibold text-erro"}>{brl(faturado - custo)}</span>
+          </p>
+        ) : null}
       </Cartao>
 
       <div className="grid gap-6 lg:grid-cols-2">

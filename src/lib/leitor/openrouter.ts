@@ -2,93 +2,47 @@ import "server-only";
 import { PROMPT_LEITURA } from "./prompt";
 import { normalizarLeitura, type LeitorDeConta } from "./tipos";
 
-/**
- * Leitor usando OpenRouter (OpenAI-compatible) com suporte a visão e documentos (PDF e imagem).
- * Permite usar Claude 3.5 Sonnet, Gemini 2.5, GPT-4o, etc.
- */
+/** Leitor via OpenRouter (formato OpenAI chat/completions) */
 export class LeitorOpenRouter implements LeitorDeConta {
   constructor(
     private readonly apiKey: string,
-    private readonly modelo = process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-5",
+    private readonly modelo: string,
   ) {}
 
   async ler({ bytes, tipo }: { bytes: ArrayBuffer; tipo: string }) {
-    const data = Buffer.from(bytes).toString("base64");
-
-    const conteudoUsuario: unknown[] = [
-      {
-        type: "text",
-        text: "Extraia os dados desta conta de energia elétrica conforme as instruções do sistema.",
-      },
-    ];
-
-    if (tipo === "application/pdf") {
-      conteudoUsuario.push({
-        type: "file",
-        file: {
-          filename: "conta.pdf",
-          file_data: `data:application/pdf;base64,${data}`,
-        },
-      });
-    } else {
-      conteudoUsuario.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${tipo};base64,${data}`,
-        },
-      });
-    }
+    const dataUrl = `data:${tipo};base64,${Buffer.from(bytes).toString("base64")}`;
+    const anexo =
+      tipo === "application/pdf"
+        ? { type: "file", file: { filename: "conta.pdf", file_data: dataUrl } }
+        : { type: "image_url", image_url: { url: dataUrl } };
 
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${this.apiKey}`,
-        "http-referer": process.env.NEXT_PUBLIC_APP_URL || "https://solar.visiopro.app.br",
-        "x-title": "VisioPro Solar",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://visiopro.app.br",
+        "X-Title": "VisioPro Solar",
       },
       body: JSON.stringify({
         model: this.modelo,
-        max_tokens: 1500,
         temperature: 0,
+        max_tokens: 1500,
         messages: [
           { role: "system", content: PROMPT_LEITURA },
-          { role: "user", content: conteudoUsuario },
+          { role: "user", content: [anexo, { type: "text", text: "Extraia os dados desta conta." }] },
         ],
       }),
       signal: AbortSignal.timeout(60_000),
     });
+    if (!res.ok) throw new Error(`OpenRouter respondeu ${res.status}: ${(await res.text()).slice(0, 400)}`);
 
-    if (!res.ok) {
-      const errTexto = await res.text().catch(() => "");
-      throw new Error(`OpenRouter respondeu ${res.status}: ${errTexto.slice(0, 300)}`);
-    }
-
-    const corpo = (await res.json()) as {
-      choices?: {
-        message?: {
-          content?: string | { type?: string; text?: string }[];
-        };
-      }[];
-    };
-
-    let texto = "";
-    const rawContent = corpo.choices?.[0]?.message?.content;
-    if (typeof rawContent === "string") {
-      texto = rawContent;
-    } else if (Array.isArray(rawContent)) {
-      texto = rawContent
-        .filter((b) => b.type === "text" || typeof b.text === "string")
-        .map((b) => b.text || "")
-        .join("");
-    }
-
+    const corpo = (await res.json()) as { choices?: { message?: { content?: string | { type: string; text?: string }[] } }[] };
+    const c = corpo.choices?.[0]?.message?.content;
+    const texto = typeof c === "string" ? c : (c ?? []).map((p) => p.text ?? "").join("");
     const inicio = texto.indexOf("{");
     const fim = texto.lastIndexOf("}");
-    if (inicio < 0 || fim < inicio) {
-      throw new Error("Leitor OpenRouter não retornou JSON válido.");
-    }
-
+    if (inicio < 0 || fim < inicio) throw new Error("Leitor não retornou JSON.");
     return normalizarLeitura(JSON.parse(texto.slice(inicio, fim + 1)));
   }
 }

@@ -3,9 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DadosFaturaPdf } from "./pdf/fatura";
 import { brl, data, mesRef, nFatura } from "./format";
 
-/** Carrega a fatura (respeitando o client recebido) e gera o PDF sob demanda */
+/** Carrega a fatura (respeitando o client recebido) e gera o PDF */
 export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
-  const { gerarPdfFatura } = await import("./pdf/fatura");
   const { data: f, error } = await supabase.from("faturas").select("*").eq("id", faturaId).maybeSingle();
   if (error || !f) return null;
 
@@ -21,6 +20,10 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     ...f,
     desconto_valor: Number(f.desconto_valor),
     compensada_kwh: Number(f.compensada_kwh),
+    consumo_kwh: f.consumo_kwh === null ? null : Number(f.consumo_kwh),
+    bandeira_centavos: Number(f.bandeira_centavos ?? 0),
+    iluminacao_centavos: Number(f.iluminacao_centavos ?? 0),
+    sem_usina_ajustado: !!f.sem_usina_ajustado,
     tarifa: Number(f.tarifa),
     valor_conta_centavos: Number(f.valor_conta_centavos),
     sem_usina_centavos: Number(f.sem_usina_centavos),
@@ -28,6 +31,7 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     economia_centavos: Number(f.economia_centavos),
     economia_acumulada_centavos: acumulada,
   };
+  const { gerarPdfFatura } = await import("./pdf/fatura");
   const pdf = await gerarPdfFatura(dados);
   const nome = `Fatura_${nFatura(f.numero)}_${mesRef(f.referencia).replace("/", "-")}.pdf`;
   return { fatura: f, pdf, nome };

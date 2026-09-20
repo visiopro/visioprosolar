@@ -30,13 +30,31 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
   const urlConta = conta ? (await supabase.storage.from("contas").createSignedUrl(conta.arquivo_path, 600)).data?.signedUrl : null;
   const whats = (f.clientes as { whatsapp: string | null } | null)?.whatsapp;
 
-  const linhas: [string, string][] = [
-    ["Energia compensada", `${numero(Number(f.compensada_kwh))} kWh`],
-    ["Tarifa da distribuidora", `R$ ${numero(Number(f.tarifa), 6)}/kWh`],
-    ...(modo === "percentual_gasto_total" ? ([["Conta da distribuidora", brl(Number(f.valor_conta_centavos))]] as [string, string][]) : []),
-    ["Sem a usina", brl(Number(f.sem_usina_centavos))],
-    [descreverRegra(modo, Number(f.desconto_valor)), `- ${brl(Number(f.economia_centavos))}`],
-  ];
+  const contaCheia = modo === "percentual_conta_cheia";
+  const bandeira = Number(f.bandeira_centavos ?? 0);
+  const ilum = Number(f.iluminacao_centavos ?? 0);
+  const semUsina = Number(f.sem_usina_centavos);
+  const linhas: [string, string][] = contaCheia
+    ? f.sem_usina_ajustado
+      ? [
+          ["Consumo do mês", `${numero(Number(f.consumo_kwh ?? 0))} kWh`],
+          ["Conta sem a usina (ajustada manualmente)", brl(semUsina)],
+        ]
+      : [
+          ["Consumo do mês", `${numero(Number(f.consumo_kwh ?? 0))} kWh`],
+          ["Tarifa da distribuidora", `R$ ${numero(Number(f.tarifa), 8)}/kWh`],
+          ["Energia (consumo × tarifa)", brl(semUsina - bandeira - ilum)],
+          ["Bandeira tarifária", brl(bandeira)],
+          ["Iluminação pública", brl(ilum)],
+          ["Conta sem a usina", brl(semUsina)],
+        ]
+    : [
+        ["Energia compensada", `${numero(Number(f.compensada_kwh))} kWh`],
+        ["Tarifa da distribuidora", `R$ ${numero(Number(f.tarifa), 8)}/kWh`],
+        ["Sem a usina", brl(semUsina)],
+      ];
+  linhas.push([descreverRegra(modo, Number(f.desconto_valor)), `- ${brl(Number(f.economia_centavos))}`]);
+  const custo = Number(f.custo_usina_centavos ?? 0);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
@@ -73,6 +91,20 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
             ))}
           </dl>
         </Cartao>
+
+        {contaCheia && custo > 0 ? (
+          <Cartao className="mt-4 flex items-center justify-between gap-4 px-6 py-4 text-sm">
+            <span className="text-nevoa">
+              Só você vê: conta paga à distribuidora {brl(custo)}
+            </span>
+            <span>
+              Resultado{" "}
+              <span className={Number(f.total_centavos) - custo >= 0 ? "font-medium text-economia" : "font-medium text-erro"}>
+                {brl(Number(f.total_centavos) - custo)}
+              </span>
+            </span>
+          </Cartao>
+        ) : null}
 
         {f.status === "cancelada" ? (
           <p className="mt-4 text-sm text-nevoa">

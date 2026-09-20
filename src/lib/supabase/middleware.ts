@@ -4,17 +4,13 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLICAS = ["/login", "/auth/callback", "/api/cron"];
 
 export async function atualizarSessao(request: NextRequest) {
-  let response = NextResponse.next({ request });
-
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    return response;
-  }
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return NextResponse.next({ request });
 
   try {
-    const supabase = createServerClient(url, anonKey, {
+    let response = NextResponse.next({ request });
+    const supabase = createServerClient(url, key, {
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (lista) => {
@@ -32,19 +28,18 @@ export async function atualizarSessao(request: NextRequest) {
     const caminho = request.nextUrl.pathname;
     const publica = PUBLICAS.some((p) => caminho.startsWith(p));
     if (!user && !publica) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/login";
-      redirectUrl.search = "";
-      return NextResponse.redirect(redirectUrl);
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      return NextResponse.redirect(url);
     }
     if (user && caminho === "/login") {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/";
-      return NextResponse.redirect(redirectUrl);
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
     }
-  } catch (erro) {
-    console.error("Erro no middleware de sessão:", erro);
+    return response;
+  } catch {
+    return NextResponse.next({ request });
   }
-
-  return response;
 }

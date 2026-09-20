@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { Camera, FileUp, Loader2, Check, Send } from "lucide-react";
 import { emitirFatura, enviarWhatsapp } from "@/app/(app)/actions";
-import { calcularFatura, MODOS, type ModoDesconto } from "@/lib/calculo";
-import { brl, numero, parseNumeroBR, soDigitos } from "@/lib/format";
+import { calcularFatura, descreverRegra, usaCompensada, type ModoDesconto } from "@/lib/calculo";
+import { brl, parseNumeroBR, soDigitos } from "@/lib/format";
 import type { LeituraConta } from "@/lib/leitor/tipos";
 import { Aviso, Botao, Campo, Cartao, cx } from "./ui";
 
@@ -51,33 +51,42 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     consumoKwh: "",
     compensadaKwh: "",
     tarifa: "",
+    bandeira: "",
+    iluminacao: "",
     valorConta: "",
+    semUsinaAjustado: "",
     vencimento: p.vencimentoPadrao,
     confirmado: false,
   });
+  const [ajustando, setAjustando] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF((a) => ({ ...a, [k]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value }));
 
   const cliente = p.clientes.find((c) => c.id === f.clienteId);
   const duvidoso = (campo: string) => !!resp?.leitura?.duvidosos.includes(campo);
 
+  const modo: ModoDesconto = cliente?.modo_desconto ?? "percentual_conta_cheia";
+  const contaCheia = modo === "percentual_conta_cheia";
+  const centavos = (v: string) => Math.round((parseNumeroBR(v) ?? 0) * 100);
+
   const calculo = useMemo(() => {
     if (!cliente) return null;
-    const compensadaKwh = parseNumeroBR(f.compensadaKwh);
-    const tarifa = parseNumeroBR(f.tarifa);
-    if (!compensadaKwh || !tarifa) return null;
     try {
       return calcularFatura({
         modo: cliente.modo_desconto,
         descontoValor: cliente.desconto_valor,
-        compensadaKwh,
-        tarifa,
-        valorContaCentavos: Math.round((parseNumeroBR(f.valorConta) ?? 0) * 100),
+        tarifa: parseNumeroBR(f.tarifa) ?? 0,
+        consumoKwh: parseNumeroBR(f.consumoKwh) ?? 0,
+        compensadaKwh: parseNumeroBR(f.compensadaKwh) ?? 0,
+        valorContaCentavos: centavos(f.valorConta),
+        bandeiraCentavos: centavos(f.bandeira),
+        iluminacaoCentavos: centavos(f.iluminacao),
+        semUsinaAjustadoCentavos: ajustando && f.semUsinaAjustado.trim() ? centavos(f.semUsinaAjustado) : null,
       });
     } catch (e) {
       return { erro: (e as Error).message };
     }
-  }, [cliente, f.compensadaKwh, f.tarifa, f.valorConta]);
+  }, [cliente, f, ajustando]);
 
   async function enviar(file: File | undefined) {
     if (!file) return;
@@ -102,8 +111,12 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
         consumoKwh: txt(l?.consumo_kwh),
         compensadaKwh: txt(l?.compensada_kwh),
         tarifa: txt(l?.tarifa),
+        bandeira: txt(l?.bandeira),
+        iluminacao: txt(l?.iluminacao_publica),
         valorConta: txt(l?.valor_conta),
+        semUsinaAjustado: "",
       }));
+      setAjustando(false);
       setEtapa("conferir");
     } catch (e) {
       setErro((e as Error).message);
@@ -115,7 +128,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     if (!resp) return;
     setErro(null);
     iniciar(async () => {
-      const r = await emitirFatura({ ...f, contaId: resp.contaId });
+      const r = await emitirFatura({ ...f, semUsinaAjustado: ajustando ? f.semUsinaAjustado : "", contaId: resp.contaId });
       if (r.erro) setErro(r.erro);
       else {
         setEmitida(r.id!);
@@ -137,7 +150,8 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     setEmitida(null);
     setEnvio(null);
     setErro(null);
-    setF({ clienteId: "", uc: "", referencia: "", consumoKwh: "", compensadaKwh: "", tarifa: "", valorConta: "", vencimento: p.vencimentoPadrao, confirmado: false });
+    setAjustando(false);
+    setF({ clienteId: "", uc: "", referencia: "", consumoKwh: "", compensadaKwh: "", tarifa: "", bandeira: "", iluminacao: "", valorConta: "", semUsinaAjustado: "", vencimento: p.vencimentoPadrao, confirmado: false });
   }
 
   // ------------------------------------------------------------ etapas
@@ -254,16 +268,36 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
             <Campo rotulo="Mês de referência">
               <input type="month" value={f.referencia} onChange={set("referencia")} className={cx("campo", duvidoso("referencia") && "duvidoso")} />
             </Campo>
-            <Campo rotulo="Consumo (kWh)">
+            <Campo rotulo="Consumo do mês (kWh)">
               <input value={f.consumoKwh} onChange={set("consumoKwh")} inputMode="decimal" className={cx("campo", duvidoso("consumo_kwh") && "duvidoso")} />
             </Campo>
-            <Campo rotulo="Energia compensada (kWh)">
-              <input value={f.compensadaKwh} onChange={set("compensadaKwh")} inputMode="decimal" className={cx("campo", duvidoso("compensada_kwh") && "duvidoso")} />
-            </Campo>
-            <Campo rotulo="Tarifa com tributos (R$/kWh)">
-              <input value={f.tarifa} onChange={set("tarifa")} inputMode="decimal" className={cx("campo", duvidoso("tarifa") && "duvidoso")} />
-            </Campo>
-            <Campo rotulo="Total da conta (R$)">
+            {usaCompensada(modo) ? (
+              <Campo rotulo="Energia compensada (kWh)">
+                <input value={f.compensadaKwh} onChange={set("compensadaKwh")} inputMode="decimal" className={cx("campo", duvidoso("compensada_kwh") && "duvidoso")} />
+              </Campo>
+            ) : (
+              <Campo rotulo="Tarifa TUSD + TE (R$/kWh)">
+                <input value={f.tarifa} onChange={set("tarifa")} inputMode="decimal" className={cx("campo", duvidoso("tarifa") && "duvidoso")} />
+              </Campo>
+            )}
+            {usaCompensada(modo) ? (
+              <Campo rotulo="Tarifa TUSD + TE (R$/kWh)">
+                <input value={f.tarifa} onChange={set("tarifa")} inputMode="decimal" className={cx("campo", duvidoso("tarifa") && "duvidoso")} />
+              </Campo>
+            ) : (
+              <>
+                <Campo rotulo="Bandeira tarifária (R$)">
+                  <input value={f.bandeira} onChange={set("bandeira")} inputMode="decimal" placeholder="0,00" className={cx("campo", duvidoso("bandeira") && "duvidoso")} />
+                </Campo>
+                <Campo rotulo="Iluminação pública (R$)">
+                  <input value={f.iluminacao} onChange={set("iluminacao")} inputMode="decimal" placeholder="0,00" className={cx("campo", duvidoso("iluminacao_publica") && "duvidoso")} />
+                </Campo>
+              </>
+            )}
+            <Campo
+              rotulo={contaCheia ? "Conta que chegou (R$)" : "Total da conta (R$)"}
+              ajuda={contaCheia ? "Valor pago pela usina. Não aparece para o cliente." : undefined}
+            >
               <input value={f.valorConta} onChange={set("valorConta")} inputMode="decimal" className={cx("campo", duvidoso("valor_conta") && "duvidoso")} />
             </Campo>
           </div>
@@ -272,24 +306,58 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
 
         <Cartao className="p-5">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="font-medium">Fatura da usina</p>
-            {cliente ? (
-              <p className="text-xs text-nevoa">
-                {MODOS[cliente.modo_desconto].rotulo}: {cliente.modo_desconto === "tarifa_fixa" ? `R$ ${numero(cliente.desconto_valor, 4)}/kWh` : `${numero(cliente.desconto_valor)}%`}
-              </p>
-            ) : null}
+            <p className="font-medium">Fatura do cliente</p>
+            {cliente ? <p className="text-xs text-nevoa">{descreverRegra(cliente.modo_desconto, cliente.desconto_valor)}</p> : null}
           </div>
           {!cliente ? (
             <p className="mt-2 text-sm text-nevoa">Selecione o cliente para ver o cálculo.</p>
-          ) : !calculo ? (
-            <p className="mt-2 text-sm text-nevoa">Preencha energia compensada e tarifa.</p>
-          ) : "erro" in calculo ? (
-            <p className="mt-2 text-sm text-erro">{calculo.erro}</p>
+          ) : !calculo || "erro" in calculo ? (
+            <p className={cx("mt-2 text-sm", calculo ? "text-erro" : "text-nevoa")}>{calculo && "erro" in calculo ? calculo.erro : "Preencha os campos da conta."}</p>
           ) : (
             <div className="mt-3">
-              <p className="text-sm text-nevoa line-through">Sem a usina: {brl(calculo.semUsinaCentavos)}</p>
+              {contaCheia ? (
+                <dl className="mb-3 space-y-1.5 border-b border-traco pb-3 text-sm">
+                  {!ajustando ? (
+                    <>
+                      <div className="flex justify-between"><dt className="text-nevoa">Energia (consumo × tarifa)</dt><dd>{brl(calculo.energiaCentavos)}</dd></div>
+                      <div className="flex justify-between"><dt className="text-nevoa">Bandeira tarifária</dt><dd>{brl(centavos(f.bandeira))}</dd></div>
+                      <div className="flex justify-between"><dt className="text-nevoa">Iluminação pública</dt><dd>{brl(centavos(f.iluminacao))}</dd></div>
+                    </>
+                  ) : null}
+                  <div className="flex items-center justify-between gap-3">
+                    <dt>Conta sem a usina</dt>
+                    <dd className="font-medium">{brl(calculo.semUsinaCentavos)}</dd>
+                  </div>
+                  {ajustando ? (
+                    <Campo rotulo="Valor da conta sem a usina (R$)" ajuda="Use quando o cálculo não bater com a realidade do cliente. Fica registrado na fatura.">
+                      <input value={f.semUsinaAjustado} onChange={set("semUsinaAjustado")} inputMode="decimal" autoFocus className="campo" />
+                    </Campo>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAjustando((v) => !v);
+                      setF((a) => ({ ...a, semUsinaAjustado: ajustando ? "" : (calculo.semUsinaCentavos / 100).toFixed(2).replace(".", ",") }));
+                    }}
+                    className="text-xs text-sol hover:underline"
+                  >
+                    {ajustando ? "Voltar ao cálculo automático" : "Ajustar valor manualmente"}
+                  </button>
+                </dl>
+              ) : (
+                <p className="text-sm text-nevoa line-through">Sem a usina: {brl(calculo.semUsinaCentavos)}</p>
+              )}
               <p className="text-[34px] font-semibold leading-tight tracking-tight">{brl(calculo.totalCentavos)}</p>
               <p className="text-sm text-economia">Economia do cliente: {brl(calculo.economiaCentavos)}</p>
+              {contaCheia && centavos(f.valorConta) > 0 ? (
+                <p className="mt-3 rounded-[var(--radius-campo)] bg-relevo px-3 py-2 text-xs text-nevoa">
+                  Só você vê: a usina recebe {brl(calculo.totalCentavos)} e pagou {brl(centavos(f.valorConta))} de conta. Resultado{" "}
+                  <span className={calculo.totalCentavos - centavos(f.valorConta) >= 0 ? "text-economia" : "text-erro"}>
+                    {brl(calculo.totalCentavos - centavos(f.valorConta))}
+                  </span>
+                  .
+                </p>
+              ) : null}
             </div>
           )}
           <Campo rotulo="Vencimento da fatura" className="mt-4 max-w-52">

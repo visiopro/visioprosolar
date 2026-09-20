@@ -14,13 +14,15 @@ export async function GET(req: Request) {
   if (mes && /^\d{4}-\d{2}$/.test(mes)) q = q.eq("referencia", `${mes}-01`);
   const { data: faturas } = await q;
 
-  const cab = ["Número", "Referência", "Cliente", "UC", "kWh compensados", "Tarifa", "Sem usina (R$)", "Total (R$)", "Economia (R$)", "Vencimento", "Status", "Pago em"];
+  const cab = ["Número", "Referência", "Cliente", "UC", "Consumo kWh", "kWh compensados", "Tarifa", "Bandeira (R$)", "Iluminação (R$)", "Sem usina (R$)", "Total (R$)", "Economia (R$)", "Conta paga pela usina (R$)", "Resultado (R$)", "Vencimento", "Status", "Pago em"];
   const linhas = (faturas ?? []).map((f) => {
     const c = (f.snapshot as { cliente: { nome: string; uc: string } }).cliente;
     return [
       nFatura(f.numero), mesRef(f.referencia), c.nome, c.uc,
-      String(f.compensada_kwh).replace(".", ","), String(f.tarifa).replace(".", ","),
+      String(f.consumo_kwh ?? "").replace(".", ","), String(f.compensada_kwh).replace(".", ","), String(f.tarifa).replace(".", ","),
+      reais(Number(f.bandeira_centavos ?? 0)), reais(Number(f.iluminacao_centavos ?? 0)),
       reais(Number(f.sem_usina_centavos)), reais(Number(f.total_centavos)), reais(Number(f.economia_centavos)),
+      reais(Number(f.custo_usina_centavos ?? 0)), reais(Number(f.total_centavos) - Number(f.custo_usina_centavos ?? 0)),
       data(f.vencimento), f.status, f.paga_em ? data(f.paga_em) : "",
     ].map(cel).join(";");
   });

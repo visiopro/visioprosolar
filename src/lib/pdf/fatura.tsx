@@ -14,6 +14,10 @@ export type DadosFaturaPdf = {
   modo_desconto: ModoDesconto;
   desconto_valor: number;
   compensada_kwh: number;
+  consumo_kwh: number | null;
+  bandeira_centavos: number;
+  iluminacao_centavos: number;
+  sem_usina_ajustado: boolean;
   tarifa: number;
   valor_conta_centavos: number;
   sem_usina_centavos: number;
@@ -119,24 +123,60 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
           </View>
 
           <Text style={s.tituloSecao}>Como calculamos</Text>
-          <View style={s.linha}>
-            <Text>Energia recebida da usina</Text>
-            <Text>{numero(f.compensada_kwh)} kWh</Text>
-          </View>
-          <View style={s.linha}>
-            <Text>Tarifa da distribuidora (com tributos)</Text>
-            <Text>R$ {numero(f.tarifa, 6)}/kWh</Text>
-          </View>
-          {f.modo_desconto === "percentual_gasto_total" ? (
-            <View style={s.linha}>
-              <Text>Conta da distribuidora no mês</Text>
-              <Text>{brl(f.valor_conta_centavos)}</Text>
-            </View>
-          ) : null}
-          <View style={s.linha}>
-            <Text>Valor dessa energia sem a usina</Text>
-            <Text>{brl(f.sem_usina_centavos)}</Text>
-          </View>
+          {f.modo_desconto === "percentual_conta_cheia" ? (
+            f.sem_usina_ajustado ? (
+              <View style={s.linha}>
+                <Text>Sua conta de energia no mês ({numero(f.consumo_kwh ?? 0)} kWh)</Text>
+                <Text>{brl(f.sem_usina_centavos)}</Text>
+              </View>
+            ) : (
+              <>
+                <View style={s.linha}>
+                  <Text>Consumo do mês</Text>
+                  <Text>{numero(f.consumo_kwh ?? 0)} kWh</Text>
+                </View>
+                <View style={s.linha}>
+                  <Text>Tarifa da distribuidora (com tributos)</Text>
+                  <Text>R$ {numero(f.tarifa, 8)}/kWh</Text>
+                </View>
+                <View style={s.linha}>
+                  <Text>Energia (consumo × tarifa)</Text>
+                  <Text>{brl(f.sem_usina_centavos - f.bandeira_centavos - f.iluminacao_centavos)}</Text>
+                </View>
+                {f.bandeira_centavos > 0 ? (
+                  <View style={s.linha}>
+                    <Text>Bandeira tarifária</Text>
+                    <Text>{brl(f.bandeira_centavos)}</Text>
+                  </View>
+                ) : null}
+                {f.iluminacao_centavos > 0 ? (
+                  <View style={s.linha}>
+                    <Text>Iluminação pública</Text>
+                    <Text>{brl(f.iluminacao_centavos)}</Text>
+                  </View>
+                ) : null}
+                <View style={s.linha}>
+                  <Text style={{ fontFamily: "Helvetica-Bold" }}>Sua conta de energia sem a usina</Text>
+                  <Text style={{ fontFamily: "Helvetica-Bold" }}>{brl(f.sem_usina_centavos)}</Text>
+                </View>
+              </>
+            )
+          ) : (
+            <>
+              <View style={s.linha}>
+                <Text>Energia recebida da usina</Text>
+                <Text>{numero(f.compensada_kwh)} kWh</Text>
+              </View>
+              <View style={s.linha}>
+                <Text>Tarifa da distribuidora (com tributos)</Text>
+                <Text>R$ {numero(f.tarifa, 8)}/kWh</Text>
+              </View>
+              <View style={s.linha}>
+                <Text>Valor dessa energia sem a usina</Text>
+                <Text>{brl(f.sem_usina_centavos)}</Text>
+              </View>
+            </>
+          )}
           <View style={s.linha}>
             <Text>{regra}</Text>
             <Text style={{ color: VERDE }}>- {brl(f.economia_centavos)}</Text>
@@ -165,7 +205,7 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
         </View>
 
         <View style={s.rodape} fixed>
-          <Text>Fatura de energia por geração compartilhada. A conta da distribuidora continua sendo paga à parte.</Text>
+          <Text>{f.modo_desconto === "percentual_conta_cheia" ? "Fatura de energia solar calculada a partir da conta da distribuidora do mês de referência." : "Fatura de energia por geração compartilhada. A conta da distribuidora continua sendo paga à parte."}</Text>
           <Text>VisioPro Solar</Text>
         </View>
       </Page>

@@ -2,7 +2,9 @@
 
 Faturamento para usinas de geração compartilhada. A usina fotografa a conta de energia do cliente, a IA lê os dados, alguém confere, e o app emite a fatura da usina em PDF com PIX e envia pelo WhatsApp.
 
-**Stack:** Next.js 15 (App Router) na Vercel · Supabase (Postgres, Auth, Storage, RLS) · OpenRouter / Claude com visão para ler a conta · Evolution API para WhatsApp · @react-pdf para a fatura.
+**Stack:** Next.js 15 (App Router) na Vercel · Supabase (Postgres, Auth, Storage, RLS) · leitura da conta por IA (OpenRouter ou Anthropic) · Evolution API para WhatsApp · @react-pdf para a fatura.
+
+Leitura: defina `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` (ex.: `anthropic/claude-sonnet-4.5`) **ou** `ANTHROPIC_API_KEY`. Se as duas existirem, usa o OpenRouter.
 
 ## Estrutura
 
@@ -10,7 +12,7 @@ Faturamento para usinas de geração compartilhada. A usina fotografa a conta de
 supabase/migrations/0001_init.sql   esquema, RLS, bucket de contas
 src/lib/calculo.ts                  motor de cálculo (3 modos, centavos)  + calculo.test.ts
 src/lib/pix.ts                      PIX copia e cola (EMV/BCB)
-src/lib/leitor/                     leitura da conta (adaptadores OpenRouter e Claude)
+src/lib/leitor/                     leitura da conta (OpenRouter ou Anthropic)
 src/lib/pdf/fatura.tsx              PDF da fatura (QR code PIX)
 src/lib/whatsapp.ts                 Evolution API
 src/app/(app)/actions.ts            ações de servidor (clientes, faturas, ajustes, equipe)
@@ -23,7 +25,8 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 ## Deploy passo a passo
 
 ### 1. Supabase
-1. Crie o projeto e rode `supabase/migrations/0001_init.sql` no **SQL Editor** (ou `supabase db push`).
+1. Crie o projeto e rode as migrações no **SQL Editor**, uma de cada vez e nesta ordem:
+   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql`.
 2. **Authentication > URL Configuration**
    - Site URL: `https://solar.visiopro.app.br` (a URL final do app)
    - Redirect URLs: `https://solar.visiopro.app.br/auth/callback`
@@ -51,13 +54,24 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ## Regras de cálculo
 
-`base = energia compensada × tarifa da distribuidora (com tributos)`
+**Padrão: % sobre a conta cheia** (conta no nome da usina, chega com tarifa mínima)
 
-| Modo | Fatura da usina | Economia do cliente |
-|---|---|---|
-| % sobre a energia compensada | base − X% | X% da base |
-| % sobre o gasto total | (conta + base) × (1 − X%) − conta | X% do gasto total sem usina |
-| Tarifa fixa por kWh | kWh × R$ X | base − fatura |
+```
+conta sem usina = consumo do mês × (TUSD + TE com tributos) + bandeira + iluminação pública
+fatura do cliente = conta sem usina − X%
+```
+
+A conta que chega (tarifa mínima) é custo da usina: fica registrada como `custo_usina_centavos` e aparece só para a equipe (resultado por fatura e no painel). Nunca vai para o PDF do cliente. O dono pode ajustar o valor da conta sem usina à mão; a fatura registra que houve ajuste.
+
+A IA lê TUSD e TE separadas e o app soma no código, para evitar erro de conta do modelo.
+
+**Outros modos** (conta no nome do cliente), com `base = energia compensada × tarifa`:
+
+| Modo | Fatura da usina |
+|---|---|
+| % sobre a energia compensada | base − X% |
+| % sobre o gasto total | (conta + base) × (1 − X%) − conta |
+| Tarifa fixa por kWh | kWh compensados × R$ X |
 
 Tudo em centavos inteiros. `npm test` roda os testes do cálculo e do PIX.
 

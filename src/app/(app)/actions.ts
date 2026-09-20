@@ -7,7 +7,7 @@ import { contexto, registrarEvento } from "@/lib/usina";
 import { calcularFatura, type ModoDesconto } from "@/lib/calculo";
 import { gerarPix } from "@/lib/pix";
 import { parseNumeroBR, soDigitos } from "@/lib/format";
-import { legendaWhatsapp } from "@/lib/faturas";
+import { pdfDaFatura, legendaWhatsapp } from "@/lib/faturas";
 import { enviarDocumento, enviarTexto } from "@/lib/whatsapp";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -26,7 +26,7 @@ const esquemaCliente = z.object({
   distribuidora: z.string().min(2, "Informe a distribuidora.").max(80),
   whatsapp: z.string().regex(/^55\d{10,11}$/, "WhatsApp: use 55 + DDD + número.").optional(),
   email: z.string().email("E-mail inválido.").optional(),
-  modo_desconto: z.enum(["percentual_compensada", "percentual_gasto_total", "tarifa_fixa"]),
+  modo_desconto: z.enum(["percentual_conta_cheia", "percentual_compensada", "percentual_gasto_total", "tarifa_fixa"]),
   desconto_valor: z.number({ invalid_type_error: "Informe o desconto." }).min(0),
 });
 
@@ -75,10 +75,15 @@ export type DadosEmissao = {
   consumoKwh: string;
   compensadaKwh: string;
   tarifa: string;
-  valorConta: string;   // R$
+  bandeira: string;     // R$
+  iluminacao: string;   // R$
+  valorConta: string;   // R$ total da conta que chegou
+  semUsinaAjustado: string; // R$, vazio = usar o cálculo
   vencimento: string;   // AAAA-MM-DD
   confirmado: boolean;
 };
+
+const reaisParaCentavos = (v: string) => Math.round((parseNumeroBR(v) ?? 0) * 100);
 
 export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id?: string }> {
   try {
@@ -92,18 +97,25 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
     if (!cliente.ativo) return { erro: "Esse cliente está inativo." };
     if (soDigitos(d.uc) !== cliente.uc) return { erro: `A UC da conta (${soDigitos(d.uc) || "vazia"}) não é a do cliente (${cliente.uc}).` };
 
-    const compensada = parseNumeroBR(d.compensadaKwh);
-    const tarifa = parseNumeroBR(d.tarifa);
-    const valorConta = parseNumeroBR(d.valorConta) ?? 0;
+    const modo = cliente.modo_desconto as ModoDesconto;
     const consumo = parseNumeroBR(d.consumoKwh);
-    if (compensada === null || tarifa === null) return { erro: "Preencha energia compensada e tarifa." };
+    const compensada = parseNumeroBR(d.compensadaKwh);
+    const tarifa = parseNumeroBR(d.tarifa) ?? 0;
+    const valorConta = reaisParaCentavos(d.valorConta);
+    const bandeira = reaisParaCentavos(d.bandeira);
+    const iluminacao = reaisParaCentavos(d.iluminacao);
+    const ajustado = d.semUsinaAjustado.trim() ? reaisParaCentavos(d.semUsinaAjustado) : null;
 
     const r = calcularFatura({
-      modo: cliente.modo_desconto as ModoDesconto,
+      modo,
       descontoValor: Number(cliente.desconto_valor),
-      compensadaKwh: compensada,
       tarifa,
-      valorContaCentavos: Math.round(valorConta * 100),
+      consumoKwh: consumo ?? 0,
+      compensadaKwh: compensada ?? 0,
+      valorContaCentavos: valorConta,
+      bandeiraCentavos: bandeira,
+      iluminacaoCentavos: iluminacao,
+      semUsinaAjustadoCentavos: modo === "percentual_conta_cheia" ? ajustado : null,
     });
 
     const referencia = `${d.referencia}-01`;
@@ -124,7 +136,9 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
         consumo_kwh: consumo,
         compensada_kwh: compensada,
         tarifa,
-        valor_conta_centavos: Math.round(valorConta * 100),
+        bandeira_centavos: bandeira,
+        iluminacao_centavos: iluminacao,
+        valor_conta_centavos: valorConta,
         status: "conferida",
         conferida_por: user.id,
         conferida_em: new Date().toISOString(),
@@ -143,11 +157,16 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
         conta_id: d.contaId,
         referencia,
         vencimento: d.vencimento,
-        modo_desconto: cliente.modo_desconto,
+        modo_desconto: modo,
         desconto_valor: cliente.desconto_valor,
-        compensada_kwh: compensada,
+        consumo_kwh: consumo,
+        compensada_kwh: compensada ?? 0,
         tarifa,
-        valor_conta_centavos: Math.round(valorConta * 100),
+        bandeira_centavos: modo === "percentual_conta_cheia" ? bandeira : 0,
+        iluminacao_centavos: modo === "percentual_conta_cheia" ? iluminacao : 0,
+        sem_usina_ajustado: modo === "percentual_conta_cheia" && ajustado !== null,
+        valor_conta_centavos: valorConta,
+        custo_usina_centavos: modo === "percentual_conta_cheia" ? valorConta : 0,
         sem_usina_centavos: r.semUsinaCentavos,
         total_centavos: r.totalCentavos,
         economia_centavos: r.economiaCentavos,
@@ -166,7 +185,7 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
     }
 
     await supabase.from("contas_energia").update({ status: "faturada" }).eq("id", d.contaId);
-    await registrarEvento(supabase, usina.id, "fatura_emitida", fatura.id, { total: r.totalCentavos, referencia });
+    await registrarEvento(supabase, usina.id, "fatura_emitida", fatura.id, { total: r.totalCentavos, referencia, ajustado: ajustado !== null });
     revalidatePath("/");
     revalidatePath("/faturas");
     return { id: fatura.id };
@@ -213,7 +232,6 @@ export async function enviarWhatsapp(id: string): Promise<{ erro?: string; ok?: 
   try {
     const { supabase, usina } = await contexto();
     if (!usina.whatsapp_instancia) return { erro: "Configure a instância do WhatsApp em Ajustes." };
-    const { pdfDaFatura } = await import("@/lib/faturas");
     const r = await pdfDaFatura(supabase, id);
     if (!r) return { erro: "Fatura não encontrada." };
     if (r.fatura.status === "cancelada") return { erro: "Fatura cancelada não pode ser enviada." };

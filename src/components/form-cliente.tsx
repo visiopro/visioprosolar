@@ -21,7 +21,7 @@ const DISTRIBUIDORAS = ["Coelba (Neoenergia)", "Cemig", "Enel", "CPFL", "Light",
 
 export function FormCliente({ c = {} }: { c?: ClienteForm }) {
   const [estado, acao, enviando] = useActionState<Estado, FormData>(salvarCliente, undefined);
-  const [modo, setModo] = useState<ModoDesconto>(c.modo_desconto ?? "percentual_compensada");
+  const [modo, setModo] = useState<ModoDesconto>(c.modo_desconto ?? "percentual_conta_cheia");
 
   return (
     <form action={acao} className="space-y-5">

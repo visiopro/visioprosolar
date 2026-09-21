@@ -29,6 +29,9 @@ export function FormUsina({ usina, podeEditar }: { usina: Usina; podeEditar: boo
         <Campo rotulo="Prazo de vencimento (dias)" ajuda="Contados a partir do lançamento da conta.">
           <input name="dias_vencimento" type="number" min={1} max={60} defaultValue={usina.dias_vencimento} className="campo" />
         </Campo>
+        <Campo rotulo="WhatsApp de contato da usina" ajuda="Com DDD. É o número que o cliente aciona no portal quando precisa falar com gente.">
+          <input name="contato_whatsapp" defaultValue={usina.contato_whatsapp?.replace(/^55/, "") ?? ""} inputMode="tel" className="campo" />
+        </Campo>
         <Campo rotulo="Chave PIX" className="sm:col-span-2">
           <input name="pix_chave" defaultValue={usina.pix_chave ?? ""} className="campo" />
         </Campo>

@@ -20,6 +20,7 @@ export type Usina = {
   gateway: "nenhum" | "asaas" | "mercadopago";
   whatsapp_auto: boolean;
   bandeira_padrao: number;
+  contato_whatsapp: string | null;
 };
 
 /** URL pública da logo (bucket "logos") */

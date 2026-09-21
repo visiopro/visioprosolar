@@ -26,7 +26,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ### 1. Supabase
 1. Crie o projeto e rode as migrações no **SQL Editor**, uma de cada vez e nesta ordem:
-   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql` → `0009_uc_sem_zeros.sql` → `0010_token_instancia.sql` → `0011_bandeira_padrao.sql` → `0012_iluminacao_publica.sql` → `0013_cip_tabelas.sql` → `0014_portal_cliente.sql`.
+   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql` → `0009_uc_sem_zeros.sql` → `0010_token_instancia.sql` → `0011_bandeira_padrao.sql` → `0012_iluminacao_publica.sql` → `0013_cip_tabelas.sql` → `0014_portal_cliente.sql` → `0015_chat_portal.sql`.
 2. **Authentication > URL Configuration**
    - Site URL: `https://solar.visiopro.app.br` (a URL final do app)
    - Redirect URLs: `https://solar.visiopro.app.br/auth/callback`
@@ -114,6 +114,9 @@ Cada cliente tem um link fixo `/c/<token>` (32 caracteres aleatórios), aberto s
 
 ## Portal do cliente final
 Cada cliente tem um link fixo `/c/<token>` (sem senha, não indexado). Mostra a fatura do mês com QR code e PIX copia e cola, PDF, link de pagamento, as 12 últimas faturas e a economia acumulada, com a logo da usina. O link vai junto com a fatura no WhatsApp e aparece no cadastro do cliente para copiar ou enviar.
+
+## Atendimento no portal
+Chat com IA dentro do portal (`src/lib/atendimento.ts` monta as instruções, `src/lib/chat.ts` chama o provedor — OpenRouter ou Anthropic, os mesmos da leitura). O atendente só pode repetir os dados daquele cliente (fatura em aberto, vencimento, situação, economia e as 12 últimas faturas): não calcula, não projeta, não negocia desconto, prazo ou cancelamento, e encaminha para o WhatsApp da usina (**Ajustes > WhatsApp de contato**). Limite de 20 perguntas por cliente a cada 24 h; tudo fica gravado em `portal_conversas`.
 
 ## Financeiro
 - **Entradas**: faturas pagas (baixa manual ou automática pelo Asaas), pelo dia do pagamento.

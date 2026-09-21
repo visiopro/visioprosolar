@@ -347,6 +347,8 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
   if (favorecido.length > 25) return { erro: "O favorecido do PIX aceita até 25 caracteres." };
   if (cidade.length > 15) return { erro: "A cidade do PIX aceita até 15 caracteres." };
   if (!Number.isInteger(dias) || dias < 1 || dias > 60) return { erro: "Prazo de vencimento entre 1 e 60 dias." };
+  const contato = soDigitos(txt(form, "contato_whatsapp"));
+  if (contato && !/^(55)?\d{10,11}$/.test(contato)) return { erro: "WhatsApp de contato inválido. Use DDD + número." };
 
   const { error } = await supabase
     .from("usinas")
@@ -359,6 +361,10 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
       dias_vencimento: dias,
       whatsapp_auto: form.get("whatsapp_auto") === "on",
       bandeira_padrao: Math.max(0, parseNumeroBR(txt(form, "bandeira_padrao")) ?? 0),
+      contato_whatsapp: (() => {
+        const d = soDigitos(txt(form, "contato_whatsapp"));
+        return d ? (d.startsWith("55") ? d : `55${d}`) : null;
+      })(),
     })
     .eq("id", usina.id);
   if (error) return { erro: "Não foi possível salvar." };

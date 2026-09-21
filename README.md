@@ -102,6 +102,7 @@ Tudo em centavos inteiros. `npm test` roda os testes do cálculo e do PIX.
 
 ## Garantias do fluxo
 - Nenhuma fatura sai sem a pessoa marcar que conferiu com a conta original.
+- Alerta de variação na conferência: tarifa mais de 5% fora da última fatura, consumo ou valor mais de 60% fora, mês anterior ao último faturado. Mês já faturado bloqueia a emissão (`src/lib/conferencia.ts`).
 - A UC da conta precisa ser a do cliente.
 - Uma fatura válida por cliente por mês (índice no banco). Cancelar libera a reemissão.
 - Fatura nunca é apagada: cancelamento guarda data e motivo. Tudo fica em `eventos`.

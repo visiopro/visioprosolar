@@ -8,6 +8,7 @@ import { calcularFatura, descreverRegra, usaCompensada, type ModoDesconto } from
 import { brl, parseNumeroBR } from "@/lib/format";
 import { normalizarUC, type LeituraConta } from "@/lib/leitor/tipos";
 import { cipDaTabela, type ClasseCip, type FaixaCip } from "@/lib/cip";
+import { conferirVariacao, type HistoricoCliente } from "@/lib/conferencia";
 import { Aviso, Botao, Campo, Cartao, cx } from "./ui";
 
 type Cliente = { id: string; nome: string; uc: string; whatsapp: string | null; modo_desconto: ModoDesconto; desconto_valor: number; cip_modo: "da_conta" | "percentual" | "fixo" | "tabela"; cip_valor: number; cip_tabela_id: string | null; cip_classe: ClasseCip | null };
@@ -34,7 +35,7 @@ async function prepararArquivo(f: File): Promise<File> {
 
 const txt = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
 
-export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | null; vencimentoPadrao: string; whatsappConfigurado: boolean; bandeiraPadrao: number; faixasCip: (FaixaCip & { tabela_id: string })[] }) {
+export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | null; vencimentoPadrao: string; whatsappConfigurado: boolean; bandeiraPadrao: number; faixasCip: (FaixaCip & { tabela_id: string })[]; historico: HistoricoCliente[] }) {
   const [etapa, setEtapa] = useState<"enviar" | "lendo" | "conferir" | "emitida">("enviar");
   const [erro, setErro] = useState<string | null>(null);
   const [resp, setResp] = useState<Resposta | null>(null);
@@ -96,6 +97,18 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     if (Math.abs(atual - cipSugerida) < 0.005) return;
     setF((a) => ({ ...a, iluminacao: String(cipSugerida.toFixed(2)).replace(".", ",") }));
   }, [cipSugerida, cipManual, f.iluminacao]);
+
+  const alertas = useMemo(() => {
+    if (!cliente) return [];
+    return conferirVariacao({
+      historico: p.historico.find((h) => h.cliente_id === cliente.id) ?? null,
+      referencia: f.referencia,
+      consumoKwh: parseNumeroBR(f.consumoKwh),
+      tarifa: parseNumeroBR(f.tarifa),
+      totalCentavos: null,
+    });
+  }, [cliente, f.referencia, f.consumoKwh, f.tarifa, p.historico]);
+  const bloqueado = alertas.some((a) => a.campo === "referencia" && a.grave);
 
   const calculo = useMemo(() => {
     if (!cliente) return null;
@@ -369,6 +382,15 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
           {contaCheia && !leitura?.bandeira && !parseNumeroBR(f.bandeira) && !p.bandeiraPadrao ? (
             <p className="text-xs text-alerta">A conta não tem linha de bandeira. Cadastre a tarifa da bandeira em Ajustes ou informe o valor aqui.</p>
           ) : null}
+          {alertas.length ? (
+            <ul className="space-y-1.5">
+              {alertas.map((a, i) => (
+                <li key={i} className={cx("flex gap-2 text-xs", a.grave ? "text-erro" : "text-alerta")}>
+                  <span aria-hidden="true">•</span> {a.texto}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {leitura?.duvidosos.length ? <p className="text-xs text-alerta">Campos em laranja: leitura incerta ou ausente. Confira na imagem.</p> : null}
         </Cartao>
 
@@ -451,7 +473,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
 
         {erro ? <Aviso tipo="erro">{erro}</Aviso> : null}
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Botao onClick={emitir} disabled={pendente || !f.confirmado || !calculo || "erro" in calculo} className="sm:flex-1">
+          <Botao onClick={emitir} disabled={pendente || bloqueado || !f.confirmado || !calculo || "erro" in calculo} className="sm:flex-1">
             {pendente ? <Loader2 size={17} className="animate-spin" /> : null} Emitir fatura
           </Botao>
           <Botao variante="secundario" onClick={recomecar} disabled={pendente}>

@@ -1,4 +1,5 @@
 import { contexto } from "@/lib/usina";
+import type { HistoricoCliente } from "@/lib/conferencia";
 
 // emitir pode incluir cobrança + PDF + WhatsApp: dá mais tempo à função
 export const maxDuration = 60;
@@ -16,6 +17,31 @@ export default async function NovaConta({ searchParams }: { searchParams: Promis
     .eq("usina_id", usina.id)
     .eq("ativo", true)
     .order("nome");
+
+  // última fatura e meses já faturados de cada cliente, para avisar variação estranha
+  const { data: historico } = await supabase
+    .from("faturas")
+    .select("cliente_id, referencia, consumo_kwh, tarifa, total_centavos")
+    .eq("usina_id", usina.id)
+    .neq("status", "cancelada")
+    .order("referencia", { ascending: false })
+    .limit(600);
+  const porCliente = new Map<string, HistoricoCliente>();
+  for (const f of historico ?? []) {
+    const atual = porCliente.get(f.cliente_id);
+    if (!atual) {
+      porCliente.set(f.cliente_id, {
+        cliente_id: f.cliente_id,
+        referencia: f.referencia,
+        consumo_kwh: f.consumo_kwh === null ? null : Number(f.consumo_kwh),
+        tarifa: Number(f.tarifa),
+        total_centavos: Number(f.total_centavos),
+        referencias: [f.referencia],
+      });
+    } else {
+      atual.referencias.push(f.referencia);
+    }
+  }
 
   const tabelasUsadas = [...new Set((clientes ?? []).map((c) => c.cip_tabela_id).filter(Boolean))] as string[];
   const { data: faixas } = tabelasUsadas.length
@@ -41,6 +67,7 @@ export default async function NovaConta({ searchParams }: { searchParams: Promis
         vencimentoPadrao={somarDias(hojeBR(), usina.dias_vencimento)}
         whatsappConfigurado={!!usina.whatsapp_instancia}
         bandeiraPadrao={Number(usina.bandeira_padrao ?? 0)}
+        historico={[...porCliente.values()]}
         faixasCip={(faixas ?? []).map((f) => ({ ...f, classe: f.classe as "B1", tipo: f.tipo as "percentual", valor: Number(f.valor) }))}
       />
     </div>

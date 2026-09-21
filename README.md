@@ -26,7 +26,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ### 1. Supabase
 1. Crie o projeto e rode as migrações no **SQL Editor**, uma de cada vez e nesta ordem:
-   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql` → `0009_uc_sem_zeros.sql` → `0010_token_instancia.sql` → `0011_bandeira_padrao.sql` → `0012_iluminacao_publica.sql`.
+   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql` → `0009_uc_sem_zeros.sql` → `0010_token_instancia.sql` → `0011_bandeira_padrao.sql` → `0012_iluminacao_publica.sql` → `0013_cip_tabelas.sql`.
 2. **Authentication > URL Configuration**
    - Site URL: `https://solar.visiopro.app.br` (a URL final do app)
    - Redirect URLs: `https://solar.visiopro.app.br/auth/callback`
@@ -86,7 +86,7 @@ A conta que chega (tarifa mínima) é custo da usina: fica registrada como `cust
 
 A IA lê TUSD e TE separadas e o app soma no código, para evitar erro de conta do modelo.
 
-**Bandeira tarifária:** o app usa o valor da própria conta, dividido pelos kWh faturados, e aplica ao consumo real (ex.: R$ 3,78 ÷ 149 kWh = R$ 0,0254/kWh). Quando a conta não traz essa linha, usa a tarifa cadastrada em **Ajustes > Bandeira tarifária (R$/kWh)**. **Iluminação pública (CIP/COSIP):** por padrão usa o valor da conta. No cadastro do cliente dá para definir **% sobre o valor da energia** (municípios que cobram por faixa de consumo, como Vitória da Conquista) ou **valor fixo**, porque na conta em nome da usina a CIP chega como o mínimo fixo da geração distribuída. O valor sugerido aparece na conferência e pode ser editado.
+**Bandeira tarifária:** o app usa o valor da própria conta, dividido pelos kWh faturados, e aplica ao consumo real (ex.: R$ 3,78 ÷ 149 kWh = R$ 0,0254/kWh). Quando a conta não traz essa linha, usa a tarifa cadastrada em **Ajustes > Bandeira tarifária (R$/kWh)**. **Iluminação pública (CIP/COSIP):** por padrão usa o valor da conta. No cadastro do cliente dá para definir **% sobre o valor da energia** (municípios que cobram por faixa de consumo, como Vitória da Conquista) ou **valor fixo**, porque na conta em nome da usina a CIP chega como o mínimo fixo da geração distribuída. O valor sugerido aparece na conferência e pode ser editado. Também dá para o cliente **seguir a tabela do município**: em `/admin/cip` a VisioPro cadastra as faixas da lei municipal (classe, intervalo de kWh, percentual ou valor fixo) e o app escolhe a alíquota conforme o consumo do mês.
 
 **Conta que já chega com os créditos (tarifa mínima):** a coluna "CONSUMO kWh" vem descontada (ex.: 11,10 kWh). O app calcula o consumo real pelas leituras do medidor, `(leitura atual − anterior) × constante` (ex.: 5.659 − 5.568 = 91 kWh), e ajusta a bandeira na mesma proporção. Encargos "TUSD GDII"/Fio B, multa e juros ficam só no custo da usina.
 

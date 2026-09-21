@@ -53,7 +53,7 @@ export default async function Admin() {
             <p className="text-sm text-nevoa">{eu.email}</p>
           </div>
         </div>
-        <Link href="/" className="text-sm text-nevoa hover:text-texto">Voltar ao app</Link>
+        <span className="flex items-center gap-4 text-sm"><Link href="/admin/cip" className="text-sol hover:underline">Iluminação pública</Link><Link href="/" className="text-nevoa hover:text-texto">Voltar ao app</Link></span>
       </header>
 
       <section>

@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { salvarCliente, type Estado } from "@/app/(app)/actions";
 import { MODOS, type ModoDesconto } from "@/lib/calculo";
+import { CLASSES, type ClasseCip } from "@/lib/cip";
 import { Aviso, Botao, Campo } from "./ui";
 
 export type ClienteForm = {
@@ -15,13 +16,17 @@ export type ClienteForm = {
   email?: string | null;
   modo_desconto?: ModoDesconto;
   desconto_valor?: number;
-  cip_modo?: "da_conta" | "percentual" | "fixo";
+  cip_modo?: "da_conta" | "percentual" | "fixo" | "tabela";
   cip_valor?: number;
+  cip_tabela_id?: string | null;
+  cip_classe?: ClasseCip | null;
 };
+
+export type TabelaCip = { id: string; municipio: string; uf: string };
 
 const DISTRIBUIDORAS = ["Coelba (Neoenergia)", "Cemig", "Enel", "CPFL", "Light", "Equatorial", "Energisa", "Celesc", "Copel", "RGE"];
 
-export function FormCliente({ c = {} }: { c?: ClienteForm }) {
+export function FormCliente({ c = {}, tabelas = [] }: { c?: ClienteForm; tabelas?: TabelaCip[] }) {
   const [estado, acao, enviando] = useActionState<Estado, FormData>(salvarCliente, undefined);
   const [modo, setModo] = useState<ModoDesconto>(c.modo_desconto ?? "percentual_conta_cheia");
   const [cip, setCip] = useState<NonNullable<ClienteForm["cip_modo"]>>(c.cip_modo ?? "da_conta");
@@ -93,6 +98,7 @@ export function FormCliente({ c = {} }: { c?: ClienteForm }) {
             { v: "da_conta" as const, r: "Usar o valor da conta", a: "Se a conta não tiver CIP, fica zero." },
             { v: "percentual" as const, r: "% sobre o valor da energia", a: "Municípios que cobram por faixa de consumo, como Vitória da Conquista." },
             { v: "fixo" as const, r: "Valor fixo por mês", a: "Quando o município cobra um valor fixo." },
+            ...(tabelas.length ? [{ v: "tabela" as const, r: "Seguir a tabela do município", a: "O app escolhe a alíquota pela faixa de consumo do mês." }] : []),
           ].map((o) => (
             <label key={o.v} className={`flex cursor-pointer gap-3 rounded-[var(--radius-campo)] border px-3.5 py-3 ${cip === o.v ? "border-sol bg-sol/5" : "border-traco"}`}>
               <input type="radio" name="cip_modo" value={o.v} checked={cip === o.v} onChange={() => setCip(o.v)} className="mt-1 accent-[var(--color-sol)]" />
@@ -103,7 +109,30 @@ export function FormCliente({ c = {} }: { c?: ClienteForm }) {
             </label>
           ))}
         </div>
-        {cip !== "da_conta" ? (
+        {cip === "tabela" ? (
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Campo rotulo="Município">
+              <select name="cip_tabela_id" defaultValue={c.cip_tabela_id ?? ""} className="campo">
+                <option value="">Selecione…</option>
+                {tabelas.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.municipio}/{t.uf}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo rotulo="Classe do cliente" ajuda="Aparece na conta, em “Classificação”.">
+              <select name="cip_classe" defaultValue={c.cip_classe ?? "B1"} className="campo">
+                {(Object.keys(CLASSES) as ClasseCip[]).map((k) => (
+                  <option key={k} value={k}>
+                    {CLASSES[k]}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+          </div>
+        ) : null}
+        {cip === "percentual" || cip === "fixo" ? (
           <Campo rotulo={cip === "percentual" ? "Alíquota (%)" : "Valor (R$)"} className="mt-4 max-w-48">
             <input name="cip_valor" required inputMode="decimal" defaultValue={c.cip_valor ? String(c.cip_valor).replace(".", ",") : ""} placeholder={cip === "percentual" ? "7" : "30,00"} className="campo" />
           </Campo>

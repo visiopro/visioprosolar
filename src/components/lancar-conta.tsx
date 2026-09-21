@@ -7,9 +7,10 @@ import { emitirFatura, enviarWhatsapp } from "@/app/(app)/actions";
 import { calcularFatura, descreverRegra, usaCompensada, type ModoDesconto } from "@/lib/calculo";
 import { brl, parseNumeroBR } from "@/lib/format";
 import { normalizarUC, type LeituraConta } from "@/lib/leitor/tipos";
+import { cipDaTabela, type ClasseCip, type FaixaCip } from "@/lib/cip";
 import { Aviso, Botao, Campo, Cartao, cx } from "./ui";
 
-type Cliente = { id: string; nome: string; uc: string; whatsapp: string | null; modo_desconto: ModoDesconto; desconto_valor: number; cip_modo: "da_conta" | "percentual" | "fixo"; cip_valor: number };
+type Cliente = { id: string; nome: string; uc: string; whatsapp: string | null; modo_desconto: ModoDesconto; desconto_valor: number; cip_modo: "da_conta" | "percentual" | "fixo" | "tabela"; cip_valor: number; cip_tabela_id: string | null; cip_classe: ClasseCip | null };
 type Resposta = { contaId: string; leitura: LeituraConta | null; aviso: string; clienteId: string | null; arquivoUrl: string | null; arquivoTipo: string };
 
 const LIMITE_PDF = 4 * 1024 * 1024; // limite de corpo da Vercel ~4,5 MB
@@ -33,7 +34,7 @@ async function prepararArquivo(f: File): Promise<File> {
 
 const txt = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
 
-export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | null; vencimentoPadrao: string; whatsappConfigurado: boolean; bandeiraPadrao: number }) {
+export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | null; vencimentoPadrao: string; whatsappConfigurado: boolean; bandeiraPadrao: number; faixasCip: (FaixaCip & { tabela_id: string })[] }) {
   const [etapa, setEtapa] = useState<"enviar" | "lendo" | "conferir" | "emitida">("enviar");
   const [erro, setErro] = useState<string | null>(null);
   const [resp, setResp] = useState<Resposta | null>(null);
@@ -75,12 +76,20 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
   // Iluminação pública pela regra do cliente (a conta em nome da usina traz só o mínimo fixo)
   const [cipManual, setCipManual] = useState(false);
   const energiaReais = (parseNumeroBR(f.consumoKwh) ?? 0) * (parseNumeroBR(f.tarifa) ?? 0);
-  const cipSugerida =
-    cliente && cliente.cip_modo !== "da_conta"
-      ? cliente.cip_modo === "percentual"
-        ? Math.round(energiaReais * cliente.cip_valor) / 100
-        : cliente.cip_valor
-      : null;
+  const cipSugerida = !cliente || cliente.cip_modo === "da_conta"
+    ? null
+    : cliente.cip_modo === "percentual"
+      ? Math.round(energiaReais * cliente.cip_valor) / 100
+      : cliente.cip_modo === "fixo"
+        ? cliente.cip_valor
+        : cliente.cip_tabela_id && cliente.cip_classe
+          ? cipDaTabela(
+              p.faixasCip.filter((x) => x.tabela_id === cliente.cip_tabela_id),
+              cliente.cip_classe,
+              parseNumeroBR(f.consumoKwh) ?? 0,
+              energiaReais,
+            )
+          : null;
   useEffect(() => {
     if (cipSugerida === null || cipManual || !cipSugerida) return;
     const atual = parseNumeroBR(f.iluminacao) ?? 0;
@@ -323,7 +332,9 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
                     cipSugerida !== null && !cipManual
                       ? cliente?.cip_modo === "percentual"
                         ? `${cliente.cip_valor}% sobre a energia, pela regra do cliente`
-                        : "valor fixo cadastrado no cliente"
+                        : cliente?.cip_modo === "tabela"
+                          ? "pela tabela do município, na faixa deste consumo"
+                          : "valor fixo cadastrado no cliente"
                       : undefined
                   }
                 >

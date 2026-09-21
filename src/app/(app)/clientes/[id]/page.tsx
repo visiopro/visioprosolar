@@ -10,9 +10,10 @@ import type { ModoDesconto } from "@/lib/calculo";
 export default async function Cliente({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { supabase } = await contexto();
-  const [{ data: c }, { data: faturas }] = await Promise.all([
+  const [{ data: c }, { data: faturas }, { data: tabelas }] = await Promise.all([
     supabase.from("clientes").select("*").eq("id", id).maybeSingle(),
     supabase.from("faturas").select("id, numero, referencia, vencimento, status, total_centavos, economia_centavos").eq("cliente_id", id).order("referencia", { ascending: false }).limit(24),
+    supabase.from("cip_tabelas").select("id, municipio, uf").order("municipio"),
   ]);
   if (!c) notFound();
   const hoje = hojeBR();
@@ -23,7 +24,8 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
       <div>
         <Cabecalho titulo={c.nome} sub={`UC ${c.uc}${c.ativo ? "" : " · inativo"}`} />
         <Cartao className="p-5 sm:p-6">
-          <FormCliente c={{ ...c, modo_desconto: c.modo_desconto as ModoDesconto, desconto_valor: Number(c.desconto_valor), cip_modo: c.cip_modo, cip_valor: Number(c.cip_valor ?? 0) }} />
+          <FormCliente c={{ ...c, modo_desconto: c.modo_desconto as ModoDesconto, desconto_valor: Number(c.desconto_valor), cip_modo: c.cip_modo, cip_valor: Number(c.cip_valor ?? 0), cip_tabela_id: c.cip_tabela_id, cip_classe: c.cip_classe }}
+            tabelas={tabelas ?? []} />
         </Cartao>
         <form action={alternarCliente.bind(null, c.id, !c.ativo)} className="mt-4">
           <Botao variante={c.ativo ? "perigo" : "secundario"} type="submit">

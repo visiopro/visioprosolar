@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { adicionarOperador, criarUsinaComConta, definirInstancia, gerarConvite, redefinirSenha, revogarConvite } from "@/app/admin/actions";
+import { adicionarFaixaCip, adicionarOperador, criarTabelaCip, criarUsinaComConta, definirInstancia, gerarConvite, redefinirSenha, removerFaixaCip, revogarConvite } from "@/app/admin/actions";
+import { CLASSES, type ClasseCip } from "@/lib/cip";
 import { Aviso, Botao, Campo } from "./ui";
 
 export function GerarConvite() {
@@ -155,5 +156,55 @@ export function AdicionarOperador({ usinaId }: { usinaId: string }) {
       {estado?.erro ? <Aviso tipo="erro">{estado.erro}</Aviso> : null}
       {estado?.mensagem ? <MensagemAcesso texto={estado.mensagem} /> : null}
     </form>
+  );
+}
+
+export function NovaTabelaCip() {
+  const [estado, acao, enviando] = useActionState(criarTabelaCip, undefined);
+  return (
+    <form action={acao} className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <input name="municipio" required placeholder="Município" className="campo flex-1" />
+        <input name="uf" defaultValue="BA" maxLength={2} className="campo w-20 uppercase" aria-label="UF" />
+        <Botao variante="secundario" disabled={enviando} className="shrink-0">Cadastrar</Botao>
+      </div>
+      {estado?.erro ? <Aviso tipo="erro">{estado.erro}</Aviso> : estado?.mensagem ? <Aviso tipo="ok">{estado.mensagem}</Aviso> : null}
+    </form>
+  );
+}
+
+export function NovaFaixaCip({ tabelaId }: { tabelaId: string }) {
+  const [estado, acao, enviando] = useActionState(adicionarFaixaCip.bind(null, tabelaId), undefined);
+  const [tipo, setTipo] = useState<"percentual" | "fixo">("percentual");
+  return (
+    <form action={acao} className="space-y-2 border-t border-traco pt-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <select name="classe" defaultValue="B1" className="campo py-1.5 text-sm" aria-label="Classe">
+          {(Object.keys(CLASSES) as ClasseCip[]).map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <input name="consumo_min" inputMode="numeric" placeholder="de (kWh)" className="campo py-1.5 text-sm" />
+        <input name="consumo_max" inputMode="numeric" placeholder="até (vazio = sem teto)" className="campo py-1.5 text-sm" />
+        <select name="tipo" value={tipo} onChange={(e) => setTipo(e.target.value as "percentual")} className="campo py-1.5 text-sm" aria-label="Tipo">
+          <option value="percentual">%</option>
+          <option value="fixo">R$</option>
+        </select>
+        <input name="valor" required inputMode="decimal" placeholder={tipo === "percentual" ? "7" : "30,00"} className="campo py-1.5 text-sm" />
+      </div>
+      <div className="flex items-center gap-3">
+        <button disabled={enviando} className="text-sm text-sol hover:underline">Adicionar faixa</button>
+        {estado?.erro ? <span className="text-xs text-erro">{estado.erro}</span> : null}
+      </div>
+    </form>
+  );
+}
+
+export function RemoverFaixa({ id }: { id: string }) {
+  const [pendente, iniciar] = useTransition();
+  return (
+    <button disabled={pendente} onClick={() => iniciar(() => removerFaixaCip(id))} className="text-xs text-nevoa hover:text-erro">
+      Remover
+    </button>
   );
 }

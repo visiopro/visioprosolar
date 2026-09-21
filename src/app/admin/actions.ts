@@ -130,3 +130,50 @@ export async function adicionarOperador(usinaId: string, _: Resultado | undefine
     ? { mensagem: [`Seu acesso ao VisioPro Solar:`, ``, `Endereço: ${appUrl() || "https://solar.visiopro.app.br"}`, `E-mail: ${email}`, `Senha provisória: ${senha}`].join("\n") }
     : { mensagem: `${email} já tinha conta e foi adicionado. Se ele não souber a senha, use "Nova senha" na lista.` };
 }
+
+// ------------------------------------------------------------------ iluminação pública
+
+export async function criarTabelaCip(_: Resultado | undefined, form: FormData): Promise<Resultado> {
+  await exigirSuperAdmin();
+  const municipio = String(form.get("municipio") ?? "").trim();
+  const uf = String(form.get("uf") ?? "BA").trim().toUpperCase();
+  if (municipio.length < 2) return { erro: "Informe o município." };
+  if (uf.length !== 2) return { erro: "UF inválida." };
+  const { error } = await supabaseAdmin().from("cip_tabelas").insert({ municipio, uf, observacao: String(form.get("observacao") ?? "").trim() || null });
+  if (error) return { erro: error.code === "23505" ? "Esse município já está cadastrado." : "Não foi possível cadastrar." };
+  revalidatePath("/admin/cip");
+  return { mensagem: `${municipio}/${uf} cadastrado.` };
+}
+
+export async function adicionarFaixaCip(tabelaId: string, _: Resultado | undefined, form: FormData): Promise<Resultado> {
+  await exigirSuperAdmin();
+  const classe = String(form.get("classe") ?? "");
+  const tipo = String(form.get("tipo") ?? "percentual");
+  const min = Number(String(form.get("consumo_min") ?? "0").replace(",", "."));
+  const maxTexto = String(form.get("consumo_max") ?? "").trim();
+  const max = maxTexto ? Number(maxTexto.replace(",", ".")) : null;
+  const valor = Number(String(form.get("valor") ?? "").replace(",", "."));
+  if (!["B1", "B2", "B3", "outros"].includes(classe)) return { erro: "Escolha a classe." };
+  if (!Number.isFinite(min) || min < 0) return { erro: "Consumo inicial inválido." };
+  if (max !== null && (!Number.isFinite(max) || max < min)) return { erro: "Consumo final inválido." };
+  if (!Number.isFinite(valor) || valor < 0) return { erro: "Valor inválido." };
+  if (tipo === "percentual" && valor > 30) return { erro: "Alíquota acima de 30% parece errada." };
+
+  const { error } = await supabaseAdmin().from("cip_faixas").insert({
+    tabela_id: tabelaId,
+    classe,
+    consumo_min: Math.round(min),
+    consumo_max: max === null ? null : Math.round(max),
+    tipo,
+    valor,
+  });
+  if (error) return { erro: "Não foi possível salvar a faixa." };
+  revalidatePath("/admin/cip");
+  return { mensagem: "Faixa salva." };
+}
+
+export async function removerFaixaCip(id: string) {
+  await exigirSuperAdmin();
+  await supabaseAdmin().from("cip_faixas").delete().eq("id", id);
+  revalidatePath("/admin/cip");
+}

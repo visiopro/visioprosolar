@@ -32,8 +32,10 @@ const esquemaCliente = z.object({
   whatsapp: z.string().regex(/^55\d{10,11}$/, "WhatsApp: use 55 + DDD + número.").optional(),
   email: z.string().email("E-mail inválido.").optional(),
   modo_desconto: z.enum(["percentual_conta_cheia", "percentual_compensada", "percentual_gasto_total", "tarifa_fixa"]),
-  cip_modo: z.enum(["da_conta", "percentual", "fixo"]),
+  cip_modo: z.enum(["da_conta", "percentual", "fixo", "tabela"]),
   cip_valor: z.number().min(0),
+  cip_tabela_id: z.string().uuid().nullable(),
+  cip_classe: z.enum(["B1", "B2", "B3", "outros"]).nullable(),
   desconto_valor: z.number({ invalid_type_error: "Informe o desconto." }).min(0),
 });
 
@@ -52,12 +54,15 @@ export async function salvarCliente(_: Estado, form: FormData): Promise<Estado> 
     desconto_valor: parseNumeroBR(txt(form, "desconto_valor")) ?? NaN,
     cip_modo: txt(form, "cip_modo") || "da_conta",
     cip_valor: parseNumeroBR(txt(form, "cip_valor")) ?? 0,
+    cip_tabela_id: txt(form, "cip_tabela_id") || null,
+    cip_classe: (txt(form, "cip_classe") || null) as "B1" | null,
   };
   const v = esquemaCliente.safeParse(bruto);
   if (!v.success) return { erro: v.error.issues[0].message };
   if (v.data.modo_desconto !== "tarifa_fixa" && v.data.desconto_valor > 100) return { erro: "O desconto não pode passar de 100%." };
   if (v.data.cip_modo === "percentual" && v.data.cip_valor > 30) return { erro: "A alíquota da iluminação pública parece alta demais (máximo 30%)." };
-  if (v.data.cip_modo !== "da_conta" && !(v.data.cip_valor > 0)) return { erro: "Informe o valor da iluminação pública." };
+  if (["percentual", "fixo"].includes(v.data.cip_modo) && !(v.data.cip_valor > 0)) return { erro: "Informe o valor da iluminação pública." };
+  if (v.data.cip_modo === "tabela" && (!v.data.cip_tabela_id || !v.data.cip_classe)) return { erro: "Escolha o município e a classe do cliente." };
 
   const linha = { ...v.data, documento: v.data.documento ?? null, whatsapp: v.data.whatsapp ?? null, email: v.data.email ?? null, usina_id: usina.id };
   const { error } = id

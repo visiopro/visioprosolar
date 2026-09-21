@@ -26,7 +26,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ### 1. Supabase
 1. Crie o projeto e rode as migrações no **SQL Editor**, uma de cada vez e nesta ordem:
-   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql` → `0009_uc_sem_zeros.sql` → `0010_token_instancia.sql` → `0011_bandeira_padrao.sql` → `0012_iluminacao_publica.sql` → `0013_cip_tabelas.sql`.
+   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql` → `0009_uc_sem_zeros.sql` → `0010_token_instancia.sql` → `0011_bandeira_padrao.sql` → `0012_iluminacao_publica.sql` → `0013_cip_tabelas.sql` → `0014_portal_cliente.sql`.
 2. **Authentication > URL Configuration**
    - Site URL: `https://solar.visiopro.app.br` (a URL final do app)
    - Redirect URLs: `https://solar.visiopro.app.br/auth/callback`
@@ -108,6 +108,12 @@ Tudo em centavos inteiros. `npm test` roda os testes do cálculo e do PIX.
 - Fatura nunca é apagada: cancelamento guarda data e motivo. Tudo fica em `eventos`.
 - A foto/PDF original fica guardada no bucket privado `contas`, em pasta da usina.
 - Dados da usina e do cliente são congelados na fatura (`snapshot`): editar o cadastro depois não altera faturas antigas.
+
+## Portal do cliente final
+Cada cliente tem um link fixo `/c/<token>` (32 caracteres aleatórios), aberto sem senha, que vai junto com a fatura no WhatsApp e aparece no cadastro do cliente para copiar. Mostra a fatura do mês com QR code e PIX copia e cola, PDF, link de pagamento, economia acumulada e as 12 últimas faturas. É só leitura e só do próprio cliente; as páginas e o PDF validam o token.
+
+## Portal do cliente final
+Cada cliente tem um link fixo `/c/<token>` (sem senha, não indexado). Mostra a fatura do mês com QR code e PIX copia e cola, PDF, link de pagamento, as 12 últimas faturas e a economia acumulada, com a logo da usina. O link vai junto com a fatura no WhatsApp e aparece no cadastro do cliente para copiar ou enviar.
 
 ## Financeiro
 - **Entradas**: faturas pagas (baixa manual ou automática pelo Asaas), pelo dia do pagamento.

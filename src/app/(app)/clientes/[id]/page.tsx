@@ -4,6 +4,8 @@ import { contexto } from "@/lib/usina";
 import { brl, data, hojeBR, mesRef, nFatura } from "@/lib/format";
 import { alternarCliente } from "../../actions";
 import { FormCliente } from "@/components/form-cliente";
+import { LinkPortal } from "@/components/portal";
+import { linkPortal } from "@/lib/faturas";
 import { Botao, Cabecalho, Cartao, Status } from "@/components/ui";
 import type { ModoDesconto } from "@/lib/calculo";
 
@@ -39,6 +41,12 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
           <p className="text-sm text-nevoa">Economia acumulada</p>
           <p className="mt-1 text-2xl font-semibold text-economia">{brl(economia)}</p>
         </Cartao>
+        <Cartao className="mb-4 p-5">
+          <p className="mb-2 text-sm text-nevoa">Portal do cliente</p>
+          <LinkPortal url={linkPortal(c.portal_token)} whatsapp={c.whatsapp} />
+          <p className="mt-2 text-xs text-nevoa">Link fixo: o cliente vê as faturas dele, o PIX e a economia. Já vai junto com a fatura no WhatsApp.</p>
+        </Cartao>
+
         <h2 className="mb-3 font-semibold">Faturas</h2>
         {faturas?.length ? (
           <Cartao className="divide-y divide-traco">

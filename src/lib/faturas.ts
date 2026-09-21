@@ -52,7 +52,7 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
   return { fatura: f, pdf, nome };
 }
 
-export function legendaWhatsapp(f: { snapshot: DadosFaturaPdf["snapshot"]; referencia: string; total_centavos: number; vencimento: string; economia_centavos: number; cobranca_link?: string | null }) {
+export function legendaWhatsapp(f: { snapshot: DadosFaturaPdf["snapshot"]; referencia: string; total_centavos: number; vencimento: string; economia_centavos: number; cobranca_link?: string | null; portal_token?: string | null }) {
   const primeiroNome = f.snapshot.cliente.nome.split(" ")[0];
   return [
     `Olá, ${primeiroNome}! Segue a fatura de energia solar de ${mesRef(f.referencia)} da ${f.snapshot.usina.nome}.`,
@@ -63,8 +63,11 @@ export function legendaWhatsapp(f: { snapshot: DadosFaturaPdf["snapshot"]; refer
     ``,
     `Na próxima mensagem vai o código PIX copia e cola.`,
     ...(f.cobranca_link ? [``, `Página de pagamento: ${f.cobranca_link}`] : []),
+    ...(f.portal_token ? [``, `Suas faturas e sua economia: ${linkPortal(f.portal_token)}`] : []),
   ].join("\n");
 }
+
+export const linkPortal = (token: string) => `${(process.env.NEXT_PUBLIC_APP_URL ?? "https://solar.visiopro.app.br").replace(/\/$/, "")}/c/${token}`;
 
 /** Envia o PDF da fatura, o PIX copia e cola e o link de pagamento no WhatsApp do cliente */
 export async function enviarFaturaPorWhatsapp(supabase: SupabaseClient, usina: Usina, faturaId: string): Promise<{ erro?: string }> {
@@ -72,12 +75,12 @@ export async function enviarFaturaPorWhatsapp(supabase: SupabaseClient, usina: U
   const r = await pdfDaFatura(supabase, faturaId);
   if (!r) return { erro: "Fatura não encontrada." };
   if (r.fatura.status === "cancelada") return { erro: "Fatura cancelada não pode ser enviada." };
-  const { data: cliente } = await supabase.from("clientes").select("whatsapp").eq("id", r.fatura.cliente_id).single();
+  const { data: cliente } = await supabase.from("clientes").select("whatsapp, portal_token").eq("id", r.fatura.cliente_id).single();
   if (!cliente?.whatsapp) return { erro: "Cadastre o WhatsApp do cliente para enviar." };
 
   try {
     const token = (await segredos(usina.id)).evolutionToken;
-    await enviarDocumento({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, legenda: legendaWhatsapp(r.fatura), pdf: r.pdf, nomeArquivo: r.nome, token });
+    await enviarDocumento({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, legenda: legendaWhatsapp({ ...r.fatura, portal_token: cliente.portal_token }), pdf: r.pdf, nomeArquivo: r.nome, token });
     // PIX em mensagem separada: no WhatsApp o cliente copia com um toque
     if (r.fatura.pix_copia_cola && r.fatura.status === "pendente") {
       await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto: r.fatura.pix_copia_cola, token });

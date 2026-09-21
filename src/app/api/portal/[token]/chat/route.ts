@@ -1,64 +1,43 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { instrucoesAtendente, type FaturaResumo } from "@/lib/atendimento";
 import { responder, type Mensagem } from "@/lib/chat";
+import { instrucoesAtendente } from "@/lib/atendimento";
 
 export const runtime = "nodejs";
+export const maxDuration = 45;
 
-const LIMITE_24H = 20;
+const LIMITE_DIA = 20;
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+/** Atendente virtual do portal: responde só com os dados do próprio cliente */
+export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  if (!/^[0-9a-f]{32}$/.test(token)) {
-    return NextResponse.json({ erro: "Token inválido." }, { status: 401 });
-  }
+  if (!/^[0-9a-f]{32}$/.test(token)) return NextResponse.json({ erro: "não encontrado" }, { status: 404 });
+
+  const corpo = (await req.json().catch(() => null)) as { mensagens?: Mensagem[] } | null;
+  const mensagens = (corpo?.mensagens ?? []).filter((m) => m && typeof m.texto === "string").slice(-8);
+  const pergunta = mensagens.filter((m) => m.papel === "cliente").at(-1)?.texto?.trim();
+  if (!pergunta) return NextResponse.json({ erro: "Escreva sua dúvida." }, { status: 400 });
+  if (pergunta.length > 500) return NextResponse.json({ erro: "Pergunta muito longa. Resuma em poucas linhas." }, { status: 400 });
 
   const admin = supabaseAdmin();
-
   const { data: cliente } = await admin
     .from("clientes")
     .select("id, nome, uc, distribuidora, usina_id, usinas(nome, contato_whatsapp)")
     .eq("portal_token", token)
     .maybeSingle();
-
-  if (!cliente) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
-  }
-
+  if (!cliente) return NextResponse.json({ erro: "não encontrado" }, { status: 404 });
   const usina = cliente.usinas as unknown as { nome: string; contato_whatsapp: string | null };
 
-  // Limite de perguntas nas últimas 24h
-  const ontem = new Date(Date.now() - 86_400_000).toISOString();
+  const desde = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const { count } = await admin
     .from("portal_conversas")
-    .select("id", { count: "exact", head: true })
+    .select("*", { count: "exact", head: true })
     .eq("cliente_id", cliente.id)
-    .gte("created_at", ontem);
-
-  if ((count ?? 0) >= LIMITE_24H) {
-    return NextResponse.json(
-      { erro: `Você atingiu o limite de ${LIMITE_24H} perguntas por dia. Tente novamente amanhã${usina.contato_whatsapp ? " ou fale com a usina no WhatsApp" : ""}.` },
-      { status: 429 },
-    );
+    .gte("created_at", desde);
+  if ((count ?? 0) >= LIMITE_DIA) {
+    return NextResponse.json({ erro: "Você já fez várias perguntas hoje. Fale com a equipe da usina para continuar." }, { status: 429 });
   }
 
-  let body: { mensagens?: Mensagem[] };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ erro: "Corpo inválido." }, { status: 400 });
-  }
-
-  const mensagens = body.mensagens;
-  if (!Array.isArray(mensagens) || !mensagens.length) {
-    return NextResponse.json({ erro: "Envie ao menos uma mensagem." }, { status: 400 });
-  }
-  const ultima = mensagens[mensagens.length - 1];
-  if (ultima.papel !== "cliente" || !ultima.texto?.trim()) {
-    return NextResponse.json({ erro: "Mensagem inválida." }, { status: 400 });
-  }
-
-  // Buscar faturas para contexto
   const { data: faturas } = await admin
     .from("faturas")
     .select("referencia, vencimento, status, total_centavos, economia_centavos, paga_em")
@@ -67,43 +46,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     .order("referencia", { ascending: false })
     .limit(12);
 
-  const lista: FaturaResumo[] = (faturas ?? []).map((f) => ({
-    referencia: f.referencia,
-    vencimento: f.vencimento,
-    status: f.status,
-    total_centavos: Number(f.total_centavos),
-    economia_centavos: Number(f.economia_centavos),
-    paga_em: f.paga_em,
-  }));
-
-  const economiaTotal = lista.reduce((s, f) => s + f.economia_centavos, 0);
-
   const sistema = instrucoesAtendente({
     usina: usina.nome,
     cliente: cliente.nome,
     uc: cliente.uc,
-    distribuidora: cliente.distribuidora ?? "distribuidora",
-    faturas: lista,
-    economiaTotal,
-    temContato: !!usina.contato_whatsapp,
+    distribuidora: cliente.distribuidora,
+    faturas: (faturas ?? []).map((f) => ({ ...f, total_centavos: Number(f.total_centavos), economia_centavos: Number(f.economia_centavos) })),
+    economiaTotal: (faturas ?? []).reduce((s, f) => s + Number(f.economia_centavos), 0),
+    contato: usina.contato_whatsapp,
   });
 
+  let resposta: string;
   try {
-    const resposta = await responder(sistema, mensagens);
-    const transferiu = /fale com|entre em contato|whatsapp/i.test(resposta);
-
-    // Gravar no banco
-    await admin.from("portal_conversas").insert({
-      usina_id: cliente.usina_id,
-      cliente_id: cliente.id,
-      pergunta: ultima.texto.slice(0, 500),
-      resposta: resposta.slice(0, 2000),
-      transferiu,
-    });
-
-    return NextResponse.json({ resposta });
+    resposta = await responder(sistema, mensagens);
   } catch (e) {
-    console.error("[chat-portal]", e);
-    return NextResponse.json({ erro: (e as Error).message || "Erro no atendimento." }, { status: 502 });
+    console.error("chat portal", e);
+    return NextResponse.json({ erro: "O atendimento está fora do ar agora. Tente de novo em instantes ou fale com a usina." }, { status: 503 });
   }
+  if (!resposta) resposta = "Não consegui entender. Pode escrever de outro jeito?";
+
+  await admin.from("portal_conversas").insert({
+    usina_id: cliente.usina_id,
+    cliente_id: cliente.id,
+    pergunta,
+    resposta,
+    transferiu: /falar com a usina|equipe da usina/i.test(resposta),
+  });
+
+  return NextResponse.json({ resposta });
 }

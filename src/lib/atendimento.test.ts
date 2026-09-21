@@ -8,7 +8,7 @@ const base = {
   uc: "3714154",
   distribuidora: "Coelba",
   economiaTotal: 5211,
-  temContato: true,
+  contato: "5577999990000",
   faturas: [
     { referencia: "2026-09-01", vencimento: "2026-09-30", status: "pendente", total_centavos: 8805, economia_centavos: 2201, paga_em: null },
     { referencia: "2026-08-01", vencimento: "2026-08-30", status: "paga", total_centavos: 9010, economia_centavos: 3010, paga_em: "2026-08-28" },
@@ -30,4 +30,16 @@ test("instruções proíbem cálculo e negociação", () => {
 
 test("sem fatura em aberto avisa que não há", () => {
   assert.match(instrucoesAtendente({ ...base, faturas: [] }), /Fatura em aberto: nenhuma/);
+});
+
+test("só pode citar o telefone cadastrado", () => {
+  const p = instrucoesAtendente(base);
+  assert.match(p, /\(77\) 99999-0000/);
+  assert.match(p, /NUNCA escreva telefone/);
+});
+
+test("sem telefone cadastrado, manda usar o botão", () => {
+  const p = instrucoesAtendente({ ...base, contato: null });
+  assert.match(p, /WhatsApp da usina: não informado/);
+  assert.match(p, /Não há telefone informado/);
 });

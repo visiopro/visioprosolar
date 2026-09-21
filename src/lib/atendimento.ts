@@ -20,6 +20,14 @@ export type FaturaResumo = {
  * Instruções do atendente virtual do portal.
  * Só pode repetir os dados abaixo: nunca calcula, nunca negocia, nunca inventa.
  */
+/** 5575991913232 -> (75) 99191-3232 */
+function formatarTelefone(v: string) {
+  const d = v.replace(/\D/g, "").replace(/^55/, "");
+  const ddd = d.slice(0, 2);
+  const resto = d.slice(2);
+  return resto.length === 9 ? `(${ddd}) ${resto.slice(0, 5)}-${resto.slice(5)}` : `(${ddd}) ${resto.slice(0, 4)}-${resto.slice(4)}`;
+}
+
 export function instrucoesAtendente(p: {
   usina: string;
   cliente: string;
@@ -27,9 +35,10 @@ export function instrucoesAtendente(p: {
   distribuidora: string;
   faturas: FaturaResumo[];
   economiaTotal: number;
-  temContato: boolean;
+  contato: string | null; // WhatsApp da usina (55 + DDD + número) ou null
 }) {
   const aberta = p.faturas.find((f) => f.status === "pendente");
+  const telefone = p.contato ? formatarTelefone(p.contato) : null;
   const linhas = p.faturas
     .slice(0, 12)
     .map((f) => `- ${mesRef(f.referencia)}: ${brl(Number(f.total_centavos))}, vencimento ${data(f.vencimento)}, ${f.status === "paga" ? `paga em ${data(f.paga_em ?? f.vencimento)}` : "em aberto"}, economia ${brl(Number(f.economia_centavos))}`)
@@ -41,6 +50,7 @@ DADOS REAIS DESTE CLIENTE (a única fonte de números que você pode usar):
 - Unidade consumidora: ${p.uc} (${p.distribuidora})
 - Fatura em aberto: ${aberta ? `${mesExtenso(aberta.referencia)}, ${brl(Number(aberta.total_centavos))}, vence em ${data(aberta.vencimento)}` : "nenhuma"}
 - Economia acumulada: ${brl(p.economiaTotal)}
+- WhatsApp da usina: ${telefone ?? "não informado"}
 - Últimas faturas:
 ${linhas || "- nenhuma fatura emitida ainda"}
 
@@ -49,7 +59,8 @@ COMO RESPONDER
 - Pode informar os valores, datas e a situação que estão acima, pois são dados do próprio cliente.
 - NUNCA faça contas, estimativas ou projeções. Não responda "quanto vou pagar mês que vem" nem simulações.
 - NUNCA invente valores, prazos, descontos, tarifas ou regras que não estejam acima.
-- NÃO negocie desconto, parcelamento, prazo, cancelamento ou reclamação: diga que quem resolve isso é a equipe da usina${p.temContato ? " e peça para usar o botão “Falar com a usina”." : "."}
+- NUNCA escreva telefone, e-mail, site, link, endereço ou horário de atendimento que não esteja nos dados acima. ${telefone ? `O único telefone que você pode citar é ${telefone}, e prefira apontar o botão “Falar com a usina” logo abaixo do chat.` : "Não há telefone informado: diga apenas para usar o botão “Falar com a usina” ou os contatos da fatura."}
+- NÃO negocie desconto, parcelamento, prazo, cancelamento ou reclamação: diga que quem resolve isso é a equipe da usina e aponte o botão “Falar com a usina”.
 - Falta de energia, religação, troca de titularidade e leitura do medidor são assuntos da distribuidora (${p.distribuidora}); oriente a procurar a distribuidora.
 - Se não souber, diga que não sabe e encaminhe para a equipe da usina. Nunca chute.
 - Se o cliente disser que pagou e a fatura constar em aberto, explique que a confirmação pode levar algumas horas e ofereça falar com a usina.

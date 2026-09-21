@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import QRCode from "qrcode";
 import { Download, ExternalLink, SunMedium, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -61,8 +60,9 @@ export default async function PortalCliente({ params }: { params: Promise<{ toke
         <header className="flex items-center justify-between border-b border-traco pb-5">
           <div className="flex items-center gap-3">
             {logo ? (
-              <div className="relative h-10 w-10 overflow-hidden rounded-lg border border-traco bg-relevo">
-                <Image src={logo} alt={usina?.nome ?? "Usina"} fill className="object-cover" sizes="40px" />
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-traco bg-relevo">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logo} alt={usina?.nome ?? "Usina"} className="h-full w-full object-cover" />
               </div>
             ) : (
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sol/10 text-sol">

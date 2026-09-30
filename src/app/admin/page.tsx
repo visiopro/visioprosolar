@@ -28,6 +28,9 @@ export default async function Admin() {
     admin.from("faturas").select("usina_id, total_centavos, status").eq("referencia", mes).neq("status", "cancelada"),
     admin.from("eventos").select("usina_id, created_at").order("created_at", { ascending: false }).limit(2000),
   ]);
+  const { data: mensalidades } = await admin.from("assinatura_faturas").select("usina_id, valor_centavos, status, vencimento, clientes_ativos").eq("referencia", mes);
+  const aReceber = (mensalidades ?? []).filter((m) => m.status === "pendente").reduce((s, m) => s + Number(m.valor_centavos), 0);
+  const recebido = (mensalidades ?? []).filter((m) => m.status === "paga").reduce((s, m) => s + Number(m.valor_centavos), 0);
   const pendentes = (convites ?? []).filter((c) => !c.usado_em);
 
   const linhas = (usinas ?? []).map((u) => {
@@ -40,6 +43,7 @@ export default async function Admin() {
       faturado: fs.reduce((s, f) => s + Number(f.total_centavos), 0),
       recebido: fs.filter((f) => f.status === "paga").reduce((s, f) => s + Number(f.total_centavos), 0),
       ultima: (eventos ?? []).find((e) => e.usina_id === u.id)?.created_at ?? null,
+      mensalidade: (mensalidades ?? []).find((m) => m.usina_id === u.id) ?? null,
     };
   });
 
@@ -65,6 +69,20 @@ export default async function Admin() {
       </section>
 
       <section>
+        <h2 className="mb-3 font-semibold">Mensalidades do mês</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <Cartao className="p-4">
+            <p className="text-sm text-nevoa">Recebido</p>
+            <p className="mt-1 text-2xl font-semibold text-economia">{brl(recebido)}</p>
+          </Cartao>
+          <Cartao className="p-4">
+            <p className="text-sm text-nevoa">A receber</p>
+            <p className="mt-1 text-2xl font-semibold">{brl(aReceber)}</p>
+          </Cartao>
+        </div>
+      </section>
+
+      <section>
         <h2 className="mb-3 font-semibold">Usinas ({linhas.length})</h2>
         <Cartao className="divide-y divide-traco">
           {linhas.map((u) => (
@@ -77,6 +95,16 @@ export default async function Admin() {
                 <p className="mt-1 text-xs">
                   <span className="text-nevoa">Este mês:</span> {u.faturas} fatura{u.faturas === 1 ? "" : "s"} · {brl(u.faturado)}
                   <span className="text-economia"> · recebido {brl(u.recebido)}</span>
+                </p>
+                <p className="mt-0.5 text-xs">
+                  <span className="text-nevoa">Mensalidade VisioPro:</span>{" "}
+                  {u.mensalidade ? (
+                    <span className={u.mensalidade.status === "paga" ? "text-economia" : "text-alerta"}>
+                      {brl(Number(u.mensalidade.valor_centavos))} · {u.mensalidade.clientes_ativos} clientes · {u.mensalidade.status === "paga" ? "paga" : "pendente"}
+                    </span>
+                  ) : (
+                    <span className="text-nevoa">ainda não gerada</span>
+                  )}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3 text-xs text-nevoa">

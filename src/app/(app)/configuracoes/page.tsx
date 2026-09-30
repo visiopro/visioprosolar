@@ -1,6 +1,6 @@
 import { contexto, urlLogo } from "@/lib/usina";
 import { Cabecalho, Cartao } from "@/components/ui";
-import { FormUsina, Equipe, FormCobranca, LogoUsina } from "@/components/form-ajustes";
+import { FormUsina, Equipe, FormCobranca, LogoUsina, TrocarSenha } from "@/components/form-ajustes";
 import { segredos, NOMES_GATEWAY } from "@/lib/cobranca";
 import { sair } from "../actions";
 
@@ -12,7 +12,15 @@ export default async function Ajustes() {
 
   return (
     <div className="max-w-2xl space-y-8">
-      <Cabecalho titulo="Ajustes" sub={user.email} />
+      <Cabecalho titulo="Ajustes" />
+
+      <section>
+        <h2 className="mb-3 font-semibold">Minha conta</h2>
+        <Cartao className="p-5 sm:p-6">
+          <p className="mb-3 text-sm text-nevoa">{user.email}</p>
+          <TrocarSenha email={user.email!} />
+        </Cartao>
+      </section>
 
       <section>
         <h2 className="mb-3 font-semibold">Dados da usina</h2>
@@ -47,6 +55,14 @@ export default async function Ajustes() {
       <section>
         <h2 className="mb-3 font-semibold">Equipe</h2>
         <Equipe membros={membros ?? []} eu={user.id} dono={papel === "dono"} />
+      </section>
+
+      <section>
+        <h2 className="mb-3 font-semibold">Assinatura</h2>
+        <Cartao className="flex items-center justify-between gap-4 p-5">
+          <p className="text-sm text-nevoa">Mensalidade do sistema, cobrada pela VisioPro conforme os clientes ativos.</p>
+          <a href="/assinatura" className="shrink-0 text-sm text-sol hover:underline">Ver assinatura</a>
+        </Cartao>
       </section>
 
       <section>

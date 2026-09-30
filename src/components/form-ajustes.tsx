@@ -284,3 +284,65 @@ export function LogoUsina({ usinaId, url, podeEditar }: { usinaId: string; url: 
     </div>
   );
 }
+
+/** Troca da própria senha: confere a senha atual antes de gravar a nova */
+export function TrocarSenha({ email }: { email: string }) {
+  const [aberto, setAberto] = useState(false);
+  const [msg, setMsg] = useState<{ tipo: "erro" | "ok"; texto: string } | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvar(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const atual = String(f.get("atual") ?? "");
+    const nova = String(f.get("nova") ?? "");
+    if (nova.length < 8) return setMsg({ tipo: "erro", texto: "A nova senha precisa de pelo menos 8 caracteres." });
+    if (nova !== f.get("confirmar")) return setMsg({ tipo: "erro", texto: "As senhas não conferem." });
+    if (nova === atual) return setMsg({ tipo: "erro", texto: "A nova senha precisa ser diferente da atual." });
+
+    setSalvando(true);
+    setMsg(null);
+    const supabase = supabaseBrowser();
+    const { error: erroLogin } = await supabase.auth.signInWithPassword({ email, password: atual });
+    if (erroLogin) {
+      setSalvando(false);
+      return setMsg({ tipo: "erro", texto: "Senha atual incorreta." });
+    }
+    const { error } = await supabase.auth.updateUser({ password: nova });
+    setSalvando(false);
+    if (error) return setMsg({ tipo: "erro", texto: "Não foi possível trocar a senha. Tente de novo." });
+    setMsg({ tipo: "ok", texto: "Senha alterada. Use a nova senha no próximo acesso." });
+    (e.target as HTMLFormElement).reset();
+  }
+
+  if (!aberto) {
+    return (
+      <button type="button" onClick={() => setAberto(true)} className="text-sm text-sol hover:underline">
+        Trocar minha senha
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={salvar} className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Campo rotulo="Senha atual">
+          <input name="atual" type="password" required autoComplete="current-password" className="campo" />
+        </Campo>
+        <Campo rotulo="Nova senha" ajuda="Mínimo de 8 caracteres.">
+          <input name="nova" type="password" required autoComplete="new-password" className="campo" />
+        </Campo>
+        <Campo rotulo="Repita a nova senha">
+          <input name="confirmar" type="password" required autoComplete="new-password" className="campo" />
+        </Campo>
+      </div>
+      {msg ? <Aviso tipo={msg.tipo}>{msg.texto}</Aviso> : null}
+      <div className="flex gap-3">
+        <Botao disabled={salvando}>{salvando ? "Salvando…" : "Salvar nova senha"}</Botao>
+        <Botao type="button" variante="fantasma" onClick={() => { setAberto(false); setMsg(null); }}>
+          Fechar
+        </Botao>
+      </div>
+    </form>
+  );
+}

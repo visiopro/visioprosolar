@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLICAS = ["/login", "/auth/callback", "/api/cron", "/api/asaas/webhook", "/api/mercadopago/webhook", "/c/", "/api/portal/"];
+const PUBLICAS = ["/login", "/auth/callback", "/api/cron", "/api/asaas/webhook", "/api/mercadopago/webhook", "/api/asaas/webhook-visiopro", "/api/mercadopago/webhook-visiopro", "/c/", "/api/portal/"];
 
 export async function atualizarSessao(request: NextRequest) {
   let response = NextResponse.next({ request });

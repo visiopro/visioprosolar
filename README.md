@@ -109,11 +109,11 @@ Tudo em centavos inteiros. `npm test` roda os testes do cálculo e do PIX.
 - A foto/PDF original fica guardada no bucket privado `contas`, em pasta da usina.
 - Dados da usina e do cliente são congelados na fatura (`snapshot`): editar o cadastro depois não altera faturas antigas.
 
-## Portal do cliente final
-Cada cliente tem um link fixo `/c/<token>` (32 caracteres aleatórios), aberto sem senha, que vai junto com a fatura no WhatsApp e aparece no cadastro do cliente para copiar. Mostra a fatura do mês com QR code e PIX copia e cola, PDF, link de pagamento, economia acumulada e as 12 últimas faturas. É só leitura e só do próprio cliente; as páginas e o PDF validam o token.
+## Assinatura (mensalidade da VisioPro)
+Cada usina paga por cliente ativo: R$ 6,00 até 30 clientes e R$ 8,00 do 31º em diante (escalonado, configurável por usina na tabela `assinaturas`). O cron `/api/cron/assinaturas` roda todo dia, gera a mensalidade uma vez por mês contando os clientes ativos e cria a cobrança PIX na **conta Mercado Pago da VisioPro** (`MERCADOPAGO_VISIOPRO_TOKEN`). A baixa é automática pelo webhook `/api/mercadopago/webhook-visiopro`. A usina vê em **Assinatura**; a VisioPro vê recebido e a receber em `/admin`.
 
 ## Portal do cliente final
-Cada cliente tem um link fixo `/c/<token>` (sem senha, não indexado). Mostra a fatura do mês com QR code e PIX copia e cola, PDF, link de pagamento, as 12 últimas faturas e a economia acumulada, com a logo da usina. O link vai junto com a fatura no WhatsApp e aparece no cadastro do cliente para copiar ou enviar.
+Cada cliente tem um link fixo `/c/<token>` (32 caracteres aleatórios, sem senha, não indexado). Mostra a fatura do mês com QR code e PIX copia e cola, PDF, link de pagamento, as 12 últimas faturas e a economia acumulada, com a logo da usina. O link vai junto com a fatura no WhatsApp e aparece no cadastro do cliente para copiar ou enviar. É só leitura e só do próprio cliente; as páginas e o PDF validam o token.
 
 ## Atendimento no portal
 Chat com IA dentro do portal (`src/lib/atendimento.ts` monta as instruções, `src/lib/chat.ts` chama o provedor — OpenRouter ou Anthropic, os mesmos da leitura). O atendente só pode repetir os dados daquele cliente (fatura em aberto, vencimento, situação, economia e as 12 últimas faturas): não calcula, não projeta, não negocia desconto, prazo ou cancelamento, e encaminha para o WhatsApp da usina (**Ajustes > WhatsApp de contato**). Limite de 20 perguntas por cliente a cada 24 h; tudo fica gravado em `portal_conversas`.

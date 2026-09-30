@@ -29,13 +29,15 @@ export default async function UsinaAdmin({ params }: { params: Promise<{ id: str
   const hoje = hojeBR();
   const mes = `${hoje.slice(0, 7)}-01`;
 
-  const [{ data: u }, { data: membros }, { count: clientes }, { data: faturas }, { data: eventos }, { data: usuarios }] = await Promise.all([
+  const [{ data: u }, { data: membros }, { count: clientes }, { data: faturas }, { data: eventos }, { data: usuarios }, { data: assinatura }, { data: mensalidades }] = await Promise.all([
     admin.from("usinas").select("*").eq("id", id).maybeSingle(),
     admin.from("usina_membros").select("user_id, email, papel").eq("usina_id", id),
     admin.from("clientes").select("*", { count: "exact", head: true }).eq("usina_id", id).eq("ativo", true),
     admin.from("faturas").select("id, numero, referencia, vencimento, status, total_centavos, snapshot").eq("usina_id", id).order("created_at", { ascending: false }).limit(15),
     admin.from("eventos").select("acao, created_at, user_id").eq("usina_id", id).order("created_at", { ascending: false }).limit(15),
     admin.auth.admin.listUsers({ perPage: 1000 }),
+    admin.from("assinaturas").select("*").eq("usina_id", id).maybeSingle(),
+    admin.from("assinatura_faturas").select("*").eq("usina_id", id).order("referencia", { ascending: false }).limit(10),
   ]);
   if (!u) notFound();
   const temToken = !!(await segredos(u.id).catch(() => null))?.evolutionToken;
@@ -98,6 +100,47 @@ export default async function UsinaAdmin({ params }: { params: Promise<{ id: str
           <Cartao className="p-4">
             <Instancia usinaId={u.id} atual={u.whatsapp_instancia} temToken={temToken} />
             <p className="mt-2 text-xs text-nevoa">Sem token, usa a chave global (EVOLUTION_API_KEY). Envio automático ao emitir: {u.whatsapp_auto ? "ligado" : "desligado"}.</p>
+          </Cartao>
+
+          <h2 className="mb-3 mt-6 font-semibold">Mensalidade VisioPro (Assinatura)</h2>
+          <Cartao className="p-4 space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-nevoa">Status da assinatura:</span>
+              <span className={assinatura?.ativa ? "text-economia font-medium" : "text-alerta font-medium"}>
+                {assinatura?.ativa ? "Ativa" : "Inativa"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-nevoa">
+              <span>Faixas cadastradas:</span>
+              <span>
+                {brl(Number(assinatura?.preco_ate_30_centavos ?? 600))} (até 30) · {brl(Number(assinatura?.preco_acima_centavos ?? 800))} (acima)
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-nevoa">
+              <span>Dias configurados:</span>
+              <span>Geração: dia {assinatura?.dia_geracao ?? 1} · Vence: dia {assinatura?.dia_vencimento ?? 10}</span>
+            </div>
+
+            {mensalidades?.length ? (
+              <div className="mt-2 divide-y divide-traco border-t border-traco pt-2">
+                <p className="text-xs font-semibold text-nevoa mb-1.5">Últimas mensalidades geradas:</p>
+                {mensalidades.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between py-1.5 text-xs">
+                    <span>
+                      {mesRef(m.referencia)} ({m.clientes_ativos} clientes)
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-medium">{brl(Number(m.valor_centavos))}</span>
+                      <span className={m.status === "paga" ? "text-economia" : "text-alerta"}>
+                        {m.status === "paga" ? "paga" : "pendente"}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="border-t border-traco pt-2 text-xs text-nevoa">Nenhuma mensalidade emitida ainda.</p>
+            )}
           </Cartao>
         </section>
 

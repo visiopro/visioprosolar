@@ -249,7 +249,7 @@ export default async function AssinaturaPage() {
             </div>
           </div>
           <a
-            href="https://wa.me/5577999999999?text=Ol%C3%A1!%20Preciso%20de%20ajuda%20com%20a%20assinatura%20da%20minha%20usina."
+            href="https://wa.me/5511944634899?text=Ol%C3%A1!%20Preciso%20de%20ajuda%20com%20a%20assinatura%20da%20minha%20usina."
             target="_blank"
             rel="noreferrer"
             className="shrink-0 text-sm text-sol hover:underline"

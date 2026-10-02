@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { convidarMembro, removerMembro, salvarCobranca, salvarLogo, salvarUsina, type Estado } from "@/app/(app)/actions";
+import { PADRAO, VARIAVEIS } from "@/lib/boas-vindas";
 import { useRouter } from "next/navigation";
 import { ImageUp, Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -54,6 +55,19 @@ export function FormUsina({ usina, podeEditar }: { usina: Usina; podeEditar: boo
             </span>
           </label>
         </div>
+      </fieldset>
+      <fieldset disabled={!podeEditar} className="rounded-[var(--radius-cartao)] border border-traco p-4 disabled:opacity-70">
+        <legend className="px-1.5 text-sm font-medium">Boas-vindas do cliente</legend>
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" name="boas_vindas_ativo" defaultChecked={usina.boas_vindas_ativo} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />
+          <span>
+            Mandar uma mensagem no WhatsApp quando um cliente novo for cadastrado
+            <span className="block text-xs text-nevoa">Explica como funciona e manda o link do portal dele. Clientes sem WhatsApp ficam de fora.</span>
+          </span>
+        </label>
+        <Campo rotulo="Texto da mensagem" ajuda={`Em branco, usa o texto padrão. Variáveis: ${VARIAVEIS.map((v) => `{{${v}}}`).join(", ")}.`} className="mt-4">
+          <textarea name="boas_vindas_texto" rows={10} defaultValue={usina.boas_vindas_texto ?? ""} placeholder={PADRAO} className="campo text-[13px]" />
+        </Campo>
       </fieldset>
       {estado ? <Aviso tipo={estado.erro ? "erro" : "ok"}>{estado.erro ?? estado.ok}</Aviso> : null}
       {podeEditar ? (

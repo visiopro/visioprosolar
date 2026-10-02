@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Copy } from "lucide-react";
+import { reenviarBoasVindas } from "@/app/(app)/actions";
 
 export function CopiarPix({ pix }: { pix: string }) {
   const [copiado, setCopiado] = useState(false);
@@ -157,3 +158,26 @@ export function ChatPortal({ token, whatsappUsina, usina }: { token: string; wha
     </section>
   );
 }
+
+/** Reenvia a mensagem de boas-vindas para o cliente (uso interno da usina) */
+export function ReenviarBoasVindas({ clienteId, enviadaEm }: { clienteId: string; enviadaEm: string | null }) {
+  const [pendente, iniciar] = useTransition();
+  const [msg, setMsg] = useState<{ erro?: string; ok?: string } | null>(null);
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-nevoa">
+        {enviadaEm ? `Boas-vindas enviadas em ${new Date(enviadaEm).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.` : "Boas-vindas ainda não enviadas."}
+      </p>
+      <button
+        type="button"
+        disabled={pendente}
+        onClick={() => iniciar(async () => setMsg(await reenviarBoasVindas(clienteId)))}
+        className="text-sm text-sol hover:underline disabled:opacity-50"
+      >
+        {enviadaEm ? "Enviar de novo" : "Enviar boas-vindas"}
+      </button>
+      {msg ? <p className={msg.erro ? "text-xs text-erro" : "text-xs text-economia"}>{msg.erro ?? msg.ok}</p> : null}
+    </div>
+  );
+}
+

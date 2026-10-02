@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { contexto, registrarEvento, type Usina } from "@/lib/usina";
-import { calcularFatura, type ModoDesconto } from "@/lib/calculo";
+import { calcularFatura, descreverRegra, type ModoDesconto } from "@/lib/calculo";
 import { gerarPix } from "@/lib/pix";
 import { parseNumeroBR, soDigitos } from "@/lib/format";
-import { enviarFaturaPorWhatsapp } from "@/lib/faturas";
+import { enviarFaturaPorWhatsapp, linkPortal } from "@/lib/faturas";
+import { montarBoasVindas } from "@/lib/boas-vindas";
+import { enviarTexto } from "@/lib/whatsapp";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 import { cobrar, obterGateway, segredos, NOMES_GATEWAY, type NomeGateway } from "@/lib/cobranca";
@@ -65,13 +67,60 @@ export async function salvarCliente(_: Estado, form: FormData): Promise<Estado> 
   if (v.data.cip_modo === "tabela" && (!v.data.cip_tabela_id || !v.data.cip_classe)) return { erro: "Escolha o município e a classe do cliente." };
 
   const linha = { ...v.data, documento: v.data.documento ?? null, whatsapp: v.data.whatsapp ?? null, email: v.data.email ?? null, usina_id: usina.id };
-  const { error } = id
-    ? await supabase.from("clientes").update(linha).eq("id", id)
-    : await supabase.from("clientes").insert(linha);
-  if (error) return { erro: error.code === "23505" ? "Já existe um cliente com essa UC." : "Não foi possível salvar o cliente." };
+  if (id) {
+    const { error } = await supabase.from("clientes").update(linha).eq("id", id);
+    if (error) return { erro: error.code === "23505" ? "Já existe um cliente com essa UC." : "Não foi possível salvar o cliente." };
+  } else {
+    const { data: novo, error } = await supabase.from("clientes").insert(linha).select("id").single();
+    if (error) return { erro: error.code === "23505" ? "Já existe um cliente com essa UC." : "Não foi possível salvar o cliente." };
+    if (usina.boas_vindas_ativo && novo) await mandarBoasVindas(supabase, usina, novo.id);
+  }
 
   revalidatePath("/clientes");
   redirect("/clientes");
+}
+
+/** Manda a mensagem de boas-vindas para um cliente recém-cadastrado */
+async function mandarBoasVindas(
+  supabase: Awaited<ReturnType<typeof contexto>>["supabase"],
+  usina: Usina,
+  clienteId: string,
+): Promise<{ erro?: string }> {
+  if (!usina.whatsapp_instancia) return { erro: "WhatsApp da usina não conectado." };
+  const { data: c } = await supabase
+    .from("clientes")
+    .select("nome, uc, distribuidora, whatsapp, portal_token, modo_desconto, desconto_valor")
+    .eq("id", clienteId)
+    .maybeSingle();
+  if (!c) return { erro: "Cliente não encontrado." };
+  if (!c.whatsapp) return { erro: "Cliente sem WhatsApp cadastrado." };
+
+  const texto = montarBoasVindas({
+    texto: usina.boas_vindas_texto,
+    cliente: c.nome,
+    usina: usina.nome,
+    uc: c.uc,
+    distribuidora: c.distribuidora,
+    regra: descreverRegra(c.modo_desconto as ModoDesconto, Number(c.desconto_valor)),
+    portal: linkPortal(c.portal_token),
+  });
+
+  try {
+    const token = (await segredos(usina.id)).evolutionToken;
+    await enviarTexto({ instancia: usina.whatsapp_instancia, numero: c.whatsapp, texto, token });
+  } catch (e) {
+    return { erro: erroDe(e) };
+  }
+  await supabase.from("clientes").update({ boas_vindas_em: new Date().toISOString() }).eq("id", clienteId);
+  await registrarEvento(supabase, usina.id, "boas_vindas_enviadas", clienteId);
+  return {};
+}
+
+export async function reenviarBoasVindas(clienteId: string): Promise<{ erro?: string; ok?: string }> {
+  const { supabase, usina } = await contexto();
+  const r = await mandarBoasVindas(supabase, usina, clienteId);
+  revalidatePath(`/clientes/${clienteId}`);
+  return r.erro ? { erro: r.erro } : { ok: "Mensagem de boas-vindas enviada." };
 }
 
 export async function alternarCliente(id: string, ativo: boolean) {
@@ -361,6 +410,8 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
       dias_vencimento: dias,
       whatsapp_auto: form.get("whatsapp_auto") === "on",
       bandeira_padrao: Math.max(0, parseNumeroBR(txt(form, "bandeira_padrao")) ?? 0),
+      boas_vindas_ativo: form.get("boas_vindas_ativo") === "on",
+      boas_vindas_texto: String(form.get("boas_vindas_texto") ?? "").trim() || null,
       contato_whatsapp: (() => {
         const d = soDigitos(txt(form, "contato_whatsapp"));
         return d ? (d.startsWith("55") ? d : `55${d}`) : null;

@@ -26,7 +26,7 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
 
 ### 1. Supabase
 1. Crie o projeto e rode as migrações no **SQL Editor**, uma de cada vez e nesta ordem:
-   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql` → `0009_uc_sem_zeros.sql` → `0010_token_instancia.sql` → `0011_bandeira_padrao.sql` → `0012_iluminacao_publica.sql` → `0013_cip_tabelas.sql` → `0014_portal_cliente.sql` → `0015_chat_portal.sql`.
+   `0001_init.sql` → `0002_modo_conta_cheia.sql` (sozinha) → `0003_conta_cheia.sql` → `0004_financeiro_asaas.sql` → `0005_logo_usina.sql` → `0006_seguranca.sql` → `0007_mercadopago.sql` → `0008_whatsapp_automatico.sql` → `0009_uc_sem_zeros.sql` → `0010_token_instancia.sql` → `0011_bandeira_padrao.sql` → `0012_iluminacao_publica.sql` → `0013_cip_tabelas.sql` → `0014_portal_cliente.sql` → `0015_chat_portal.sql` → `0016_assinatura.sql` → `0017_boas_vindas.sql`.
 2. **Authentication > URL Configuration**
    - Site URL: `https://solar.visiopro.app.br` (a URL final do app)
    - Redirect URLs: `https://solar.visiopro.app.br/auth/callback`
@@ -111,6 +111,9 @@ Tudo em centavos inteiros. `npm test` roda os testes do cálculo e do PIX.
 
 ## Assinatura (mensalidade da VisioPro)
 Cada usina paga por cliente ativo: R$ 6,00 até 30 clientes e R$ 8,00 do 31º em diante (escalonado, configurável por usina na tabela `assinaturas`). O cron `/api/cron/assinaturas` roda todo dia, gera a mensalidade uma vez por mês contando os clientes ativos e cria a cobrança PIX na **conta Mercado Pago da VisioPro** (`MERCADOPAGO_VISIOPRO_TOKEN`). A baixa é automática pelo webhook `/api/mercadopago/webhook-visiopro`. A usina vê em **Assinatura**; a VisioPro vê recebido e a receber em `/admin`.
+
+## Boas-vindas do cliente
+Ao cadastrar um cliente com WhatsApp, o app pode mandar uma mensagem explicando como funciona a assinatura de energia, qual é a regra de desconto dele e o link do portal. O texto é editável em **Ajustes > Boas-vindas do cliente** (variáveis `{{cliente}}`, `{{usina}}`, `{{uc}}`, `{{distribuidora}}`, `{{regra}}`, `{{portal}}`); em branco, usa o texto padrão de `src/lib/boas-vindas.ts`. Na ficha do cliente dá para reenviar.
 
 ## Portal do cliente final
 Cada cliente tem um link fixo `/c/<token>` (32 caracteres aleatórios, sem senha, não indexado). Mostra a fatura do mês com QR code e PIX copia e cola, PDF, link de pagamento, as 12 últimas faturas e a economia acumulada, com a logo da usina. O link vai junto com a fatura no WhatsApp e aparece no cadastro do cliente para copiar ou enviar. É só leitura e só do próprio cliente; as páginas e o PDF validam o token.

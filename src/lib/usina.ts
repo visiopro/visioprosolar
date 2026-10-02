@@ -21,6 +21,8 @@ export type Usina = {
   whatsapp_auto: boolean;
   bandeira_padrao: number;
   contato_whatsapp: string | null;
+  boas_vindas_ativo: boolean;
+  boas_vindas_texto: string | null;
 };
 
 /** URL pública da logo (bucket "logos") */

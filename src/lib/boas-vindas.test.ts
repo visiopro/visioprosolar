@@ -11,11 +11,11 @@ const base = {
   portal: "https://solar.visiopro.app.br/c/abc",
 };
 
-test("texto padrão usa o primeiro nome e a regra do cliente", () => {
+test("texto padrão contém usina, UC, distribuidora e portal", () => {
   const t = montarBoasVindas({ ...base, texto: null });
-  assert.match(t, /Olá, José!/);
-  assert.match(t, /desconto de 20% sobre a conta de energia/);
-  assert.match(t, /3714154 \(Coelba\)/);
+  assert.match(t, /Usina Solar Planalto/);
+  assert.match(t, /3714154/);
+  assert.match(t, /Coelba/);
   assert.match(t, /solar\.visiopro\.app\.br\/c\/abc/);
 });
 
@@ -29,5 +29,5 @@ test("variável desconhecida fica como está", () => {
 });
 
 test("o padrão exportado tem as variáveis principais", () => {
-  for (const v of ["cliente", "usina", "uc", "portal"]) assert.ok(PADRAO.includes(`{{${v}}}`));
+  for (const v of ["usina", "uc", "distribuidora", "portal"]) assert.ok(PADRAO.includes(`{{${v}}}`));
 });

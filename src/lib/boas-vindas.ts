@@ -1,15 +1,21 @@
 /** Mensagem de boas-vindas: texto da usina com as variáveis preenchidas */
 
-export const PADRAO = `Olá, {{cliente}}! Seja bem-vindo(a) à {{usina}}. 🌞
+export const PADRAO = `☀️ Bem-vindo à {{usina}}!
 
-A partir de agora a energia solar da nossa usina abate a conta da sua unidade {{uc}} ({{distribuidora}}).
+Sua unidade {{uc}} ({{distribuidora}}) já está no nosso sistema e passou pela transferência de titularidade. O próximo passo é a homologação junto à {{distribuidora}}, que é o que libera os créditos de energia solar para a sua conta.
 
-Como funciona:
-• Todo mês você continua recebendo a conta da distribuidora, com valor bem menor.
-• Nós enviamos aqui pelo WhatsApp a fatura da usina, com {{regra}}.
-• O pagamento é por PIX, no link ou no QR code da fatura.
-• Você acompanha faturas, segunda via e sua economia aqui: {{portal}}
+⏳ *Sobre a primeira fatura*
+Ela ainda pode vir com o valor cheio, porque o desconto só começa depois que a homologação é concluída. Isso leva alguns dias e é normal. A partir daí, a economia aparece todo mês.
 
+📅 *Como vai funcionar*
+- O vencimento continua o mesmo de sempre.
+- Perto da data, você recebe aqui no WhatsApp o demonstrativo do consumo, o valor a pagar e a chave Pix.
+- Nada muda no seu dia a dia: a energia é a mesma, só o valor fica menor.
+
+📱 *Suas faturas, quando quiser*
+Acompanhe tudo, inclusive segunda via e a economia acumulada: {{portal}}
+
+💚 Obrigado pela confiança!
 Qualquer dúvida, é só responder esta mensagem.`;
 
 export const VARIAVEIS = ["cliente", "usina", "uc", "distribuidora", "regra", "portal"] as const;

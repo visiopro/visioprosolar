@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { enviarTexto } from "@/lib/whatsapp";
+import { enviarTexto, usaWhatsAppOficial, whatsappDisponivel } from "@/lib/whatsapp";
 import { segredos } from "@/lib/cobranca";
 import { brl, data, hojeBR, mesRef, somarDias } from "@/lib/format";
 
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
   for (const f of faturas ?? []) {
     const cliente = f.clientes as unknown as { whatsapp: string | null } | null;
     const usina = f.usinas as unknown as { whatsapp_instancia: string | null; nome: string; asaas_notificar: boolean } | null;
-    if (!cliente?.whatsapp || !usina?.whatsapp_instancia) continue;
+    if (!cliente?.whatsapp || !usina || !whatsappDisponivel(usina.whatsapp_instancia, "texto")) continue;
     // o Asaas já avisa esse cliente: evita mensagem duplicada
     if (f.cobranca_gateway === "asaas" && usina.asaas_notificar) continue;
     const vencida = f.vencimento < hoje;
@@ -45,8 +45,8 @@ export async function GET(req: Request) {
       `\nSe já pagou, desconsidere esta mensagem.`,
     ].join("\n");
     try {
-      const token = (await segredos(f.usina_id)).evolutionToken;
-      await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto, token });
+      const token = usaWhatsAppOficial() ? null : (await segredos(f.usina_id)).evolutionToken;
+      await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto, usinaNome: usina.nome, token });
       await admin.from("faturas").update({ lembrete_em: new Date().toISOString() }).eq("id", f.id);
       await admin.from("eventos").insert({ usina_id: f.usina_id, user_id: null, acao: "lembrete_enviado", alvo_id: f.id });
       enviados++;

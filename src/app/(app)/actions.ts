@@ -9,7 +9,7 @@ import { gerarPix } from "@/lib/pix";
 import { parseNumeroBR, soDigitos } from "@/lib/format";
 import { enviarFaturaPorWhatsapp, linkPortal } from "@/lib/faturas";
 import { montarBoasVindas } from "@/lib/boas-vindas";
-import { enviarTexto } from "@/lib/whatsapp";
+import { enviarTexto, usaWhatsAppOficial, whatsappDisponivel } from "@/lib/whatsapp";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 import { cobrar, obterGateway, segredos, NOMES_GATEWAY, type NomeGateway } from "@/lib/cobranca";
@@ -86,7 +86,9 @@ async function mandarBoasVindas(
   usina: Usina,
   clienteId: string,
 ): Promise<{ erro?: string }> {
-  if (!usina.whatsapp_instancia) return { erro: "WhatsApp da usina não conectado." };
+  if (!whatsappDisponivel(usina.whatsapp_instancia, "texto")) {
+    return { erro: usaWhatsAppOficial() ? "O número oficial da VisioPro ou o modelo de mensagem ainda não está configurado." : "WhatsApp da usina não conectado." };
+  }
   const { data: c } = await supabase
     .from("clientes")
     .select("nome, uc, distribuidora, whatsapp, portal_token, modo_desconto, desconto_valor")
@@ -106,8 +108,8 @@ async function mandarBoasVindas(
   });
 
   try {
-    const token = (await segredos(usina.id)).evolutionToken;
-    await enviarTexto({ instancia: usina.whatsapp_instancia, numero: c.whatsapp, texto, token });
+    const token = usaWhatsAppOficial() ? null : (await segredos(usina.id)).evolutionToken;
+    await enviarTexto({ instancia: usina.whatsapp_instancia, numero: c.whatsapp, texto, usinaNome: usina.nome, token });
   } catch (e) {
     return { erro: erroDe(e) };
   }
@@ -274,7 +276,7 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
     }
     // envio automático no WhatsApp (depois da cobrança, para já sair com o PIX dinâmico)
     let enviada = false;
-    if (usina.whatsapp_auto && usina.whatsapp_instancia && cliente.whatsapp) {
+    if (usina.whatsapp_auto && whatsappDisponivel(usina.whatsapp_instancia, "fatura") && cliente.whatsapp) {
       const w = await enviarFaturaPorWhatsapp(supabase, usina, fatura.id);
       if (w.erro) aviso = [aviso, `Não foi enviada no WhatsApp: ${w.erro}`].filter(Boolean).join(" ");
       else enviada = true;

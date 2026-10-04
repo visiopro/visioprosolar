@@ -2,7 +2,7 @@
 
 Faturamento para usinas de geração compartilhada. A usina fotografa a conta de energia do cliente, a IA lê os dados, alguém confere, e o app emite a fatura da usina em PDF com PIX e envia pelo WhatsApp.
 
-**Stack:** Next.js 15 (App Router) na Vercel · Supabase (Postgres, Auth, Storage, RLS) · leitura da conta por IA (OpenRouter ou Anthropic) · Evolution API para WhatsApp · @react-pdf para a fatura.
+**Stack:** Next.js 15 (App Router) na Vercel · Supabase (Postgres, Auth, Storage, RLS) · leitura da conta por IA (OpenRouter ou Anthropic) · WhatsApp pela Evolution API por usina ou pelo número oficial Meta Cloud da VisioPro · @react-pdf para a fatura.
 
 Leitura: defina `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` (ex.: `anthropic/claude-sonnet-4.5`) **ou** `ANTHROPIC_API_KEY`. Se as duas existirem, usa o OpenRouter.
 
@@ -14,7 +14,7 @@ src/lib/calculo.ts                  motor de cálculo (3 modos, centavos)  + cal
 src/lib/pix.ts                      PIX copia e cola (EMV/BCB)
 src/lib/leitor/                     leitura da conta (OpenRouter ou Anthropic)
 src/lib/pdf/fatura.tsx              PDF da fatura (QR code PIX)
-src/lib/whatsapp.ts                 Evolution API
+src/lib/whatsapp.ts                 Evolution API ou Meta Cloud API
 src/app/(app)/actions.ts            ações de servidor (clientes, faturas, ajustes, equipe)
 src/app/api/contas/leitura          upload + leitura
 src/app/api/faturas/[id]/pdf        PDF da fatura
@@ -42,7 +42,48 @@ src/app/api/cron/lembretes          lembrete diário de vencimento
    - `CRON_SECRET`: gere uma senha longa. A Vercel envia esse valor ao chamar o cron.
 3. O `vercel.json` agenda os lembretes todo dia às 12h UTC (9h de Brasília).
 
-### 3. WhatsApp (Evolution API)
+### 3. WhatsApp
+
+O projeto mantém dois modos de envio. Para usar o número oficial VisioPro, configure na Vercel:
+
+```env
+WHATSAPP_PROVIDER=meta_cloud
+WHATSAPP_META_PHONE_NUMBER_ID=ID_DO_NUMERO_OFICIAL
+WHATSAPP_META_ACCESS_TOKEN=TOKEN_PERMANENTE_DA_META
+WHATSAPP_META_API_VERSION=vXX.0
+WHATSAPP_TEMPLATE_FATURA=visiopro_fatura_pdf
+WHATSAPP_TEMPLATE_TEXTO=visiopro_aviso
+WHATSAPP_TEMPLATE_LANGUAGE=pt_BR
+```
+
+Use uma versão Graph API ainda habilitada no app Meta e guarde o token como segredo. Cadastre e aprove dois modelos na conta oficial antes de ligar o envio. Use `pt_BR` e estes nomes:
+
+- `visiopro_fatura_pdf`: cabeçalho do tipo documento PDF. No corpo, use:
+
+  ```text
+  Fatura da usina *{{1}}*
+  Olá, {{2}}! Sua fatura de energia solar de {{3}} está disponível.
+  Valor: {{4}}
+  Vencimento: {{5}}
+  PIX copia e cola: {{6}}
+  Se já pagou, desconsidere esta mensagem.
+  ```
+
+  Os parâmetros são nome da usina, primeiro nome do cliente, mês, valor, vencimento e código PIX. A logo e o nome da usina também aparecem no PDF.
+- `visiopro_aviso`: corpo:
+
+  ```text
+  Aviso da usina *{{1}}*:
+  {{2}}
+  Enviado pela VisioPro.
+  ```
+
+  Usado para boas-vindas e lembretes.
+
+No modo oficial, todas as usinas usam o mesmo número VisioPro; cada mensagem mostra o nome da usina e a fatura leva a logo dela. O envio de fatura usa um modelo aprovado com o PDF e o PIX. O envio de boas-vindas e lembretes requer também o modelo de texto. As respostas chegam ao inbox conectado ao número oficial da VisioPro; este app não as encaminha automaticamente para o WhatsApp da usina.
+
+Para continuar com a configuração antiga por usina, use `WHATSAPP_PROVIDER=evolution` (ou deixe essa variável vazia):
+
 1. Crie uma instância para a usina e conecte o número dela pelo QR code.
 2. No painel **/admin** (só e-mails em `SUPER_ADMIN_EMAILS`), informe a instância na linha da usina. Se a instância tiver token próprio, cole-o ali; sem token, o app usa a chave global `EVOLUTION_API_KEY`. A usina não consegue alterar esse campo: uma instância pertence a uma única usina.
 3. `EVOLUTION_API_URL` e `EVOLUTION_API_KEY` ficam só na Vercel; a usina nunca vê a chave.
@@ -134,7 +175,7 @@ Chat com IA dentro do portal (`src/lib/atendimento.ts` monta as instruções, `s
 - Valores da fatura ficam travados após a emissão; fatura cancelada não muda mais.
 - Exclusões (clientes, contas, despesas) só pelo dono; operador lê, cria e edita.
 - Chave do Asaas e convites em tabelas sem acesso pelo navegador (só o servidor).
-- Instância do WhatsApp definida só pela VisioPro.
+- Instância do WhatsApp Evolution definida só pela VisioPro; no modo oficial, as usinas compartilham o número central da VisioPro.
 
 ## Limites conhecidos (v1)
 - Fotos são reduzidas no celular antes do envio. PDFs da conta devem ter até 4 MB (limite de corpo da Vercel).

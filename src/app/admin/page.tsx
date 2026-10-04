@@ -6,6 +6,7 @@ import { brl, data, hojeBR } from "@/lib/format";
 import { Marca } from "@/components/marca";
 import { Cartao } from "@/components/ui";
 import { CriarUsinaComConta, GerarConvite, RevogarConvite } from "@/components/admin";
+import { usaWhatsAppOficial, whatsappDisponivel } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -109,7 +110,9 @@ export default async function Admin() {
               </div>
               <div className="flex shrink-0 items-center gap-3 text-xs text-nevoa">
                 <span className="hidden text-right sm:block">
-                  {u.whatsapp_instancia ? "WhatsApp ok" : <span className="text-alerta">sem WhatsApp</span>}
+                  {usaWhatsAppOficial()
+                    ? whatsappDisponivel(u.whatsapp_instancia, "fatura") ? "Número oficial ok" : <span className="text-alerta">número oficial pendente</span>
+                    : u.whatsapp_instancia ? "WhatsApp ok" : <span className="text-alerta">sem WhatsApp</span>}
                   <br />
                   {u.gateway === "nenhum" ? "cobrança manual" : u.gateway === "asaas" ? "Asaas" : "Mercado Pago"}
                 </span>

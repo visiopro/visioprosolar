@@ -6,6 +6,7 @@ import { brl, data, hojeBR, mesExtenso, nFatura, numero } from "@/lib/format";
 import { descreverRegra, type ModoDesconto } from "@/lib/calculo";
 import { Cartao, Status } from "@/components/ui";
 import { AcoesFatura } from "@/components/acoes-fatura";
+import { whatsappDisponivel } from "@/lib/whatsapp";
 
 const NOMES_EVENTO: Record<string, string> = {
   fatura_emitida: "Emitida",
@@ -134,7 +135,7 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
           id={f.id}
           status={f.status}
           pix={f.pix_copia_cola}
-          podeEnviar={!!usina.whatsapp_instancia && !!whats}
+          podeEnviar={whatsappDisponivel(usina.whatsapp_instancia, "fatura") && !!whats}
           urlConta={urlConta ?? null}
           gatewayAtivo={usina.gateway !== "nenhum"}
           cobrancaId={f.cobranca_id}

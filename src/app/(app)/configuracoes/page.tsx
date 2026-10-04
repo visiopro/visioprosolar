@@ -2,6 +2,7 @@ import { contexto, urlLogo } from "@/lib/usina";
 import { Cabecalho, Cartao } from "@/components/ui";
 import { FormUsina, Equipe, FormCobranca, LogoUsina, TrocarSenha } from "@/components/form-ajustes";
 import { segredos, NOMES_GATEWAY } from "@/lib/cobranca";
+import { usaWhatsAppOficial, whatsappDisponivel } from "@/lib/whatsapp";
 import { sair } from "../actions";
 
 export default async function Ajustes() {
@@ -29,7 +30,13 @@ export default async function Ajustes() {
           <LogoUsina usinaId={usina.id} url={urlLogo(usina.logo_path)} podeEditar={papel === "dono"} />
         </Cartao>
         <Cartao className="p-5 sm:p-6">
-          <FormUsina usina={usina} podeEditar={papel === "dono"} />
+          <FormUsina
+            usina={usina}
+            podeEditar={papel === "dono"}
+            whatsappOficial={usaWhatsAppOficial()}
+            whatsappFaturaConfigurado={whatsappDisponivel(usina.whatsapp_instancia, "fatura")}
+            whatsappTextoConfigurado={whatsappDisponivel(usina.whatsapp_instancia, "texto")}
+          />
         </Cartao>
       </section>
 

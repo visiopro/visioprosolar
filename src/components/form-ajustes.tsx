@@ -10,7 +10,13 @@ import { Copy } from "lucide-react";
 import type { Usina } from "@/lib/usina";
 import { Aviso, Botao, Campo, Cartao } from "./ui";
 
-export function FormUsina({ usina, podeEditar }: { usina: Usina; podeEditar: boolean }) {
+export function FormUsina({ usina, podeEditar, whatsappOficial, whatsappFaturaConfigurado, whatsappTextoConfigurado }: {
+  usina: Usina;
+  podeEditar: boolean;
+  whatsappOficial: boolean;
+  whatsappFaturaConfigurado: boolean;
+  whatsappTextoConfigurado: boolean;
+}) {
   const [estado, acao, enviando] = useActionState<Estado, FormData>(salvarUsina, undefined);
   return (
     <form action={acao} className="space-y-5">
@@ -45,8 +51,17 @@ export function FormUsina({ usina, podeEditar }: { usina: Usina; podeEditar: boo
         <div className="sm:col-span-2">
           <p className="mb-1.5 text-sm text-nevoa">WhatsApp</p>
           <p className="text-sm">
-            {usina.whatsapp_instancia ? "Conectado. As faturas podem ser enviadas pelo WhatsApp." : "Não conectado. Fale com a VisioPro para conectar o número da usina."}
+            {whatsappOficial
+              ? whatsappFaturaConfigurado
+                ? "Usando o número oficial da VisioPro. O nome da usina aparece no texto e a logo dela sai no PDF."
+                : "O número oficial da VisioPro ou o modelo aprovado para enviar faturas ainda não foi configurado."
+              : usina.whatsapp_instancia
+                ? "Conectado. As faturas podem ser enviadas pelo WhatsApp."
+                : "Não conectado. Fale com a VisioPro para conectar o número da usina."}
           </p>
+          {whatsappOficial && !whatsappTextoConfigurado ? (
+            <p className="mt-2 text-xs text-nevoa">Para enviar boas-vindas e lembretes pelo número oficial, também é necessário configurar o modelo de mensagem de texto.</p>
+          ) : null}
           <label className="mt-3 flex items-start gap-3 text-sm">
             <input type="checkbox" name="whatsapp_auto" defaultChecked={usina.whatsapp_auto} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />
             <span>

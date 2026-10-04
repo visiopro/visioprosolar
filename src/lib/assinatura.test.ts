@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { calcularMensalidade } from "./assinatura";
+import { calcularMensalidade } from "./assinatura.ts";
 
 const p = { preco_ate_30_centavos: 600, preco_acima_centavos: 800, minimo_centavos: 0 };
 

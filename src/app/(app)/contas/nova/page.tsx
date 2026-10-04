@@ -7,6 +7,7 @@ import { hojeBR, somarDias } from "@/lib/format";
 import { LancarConta } from "@/components/lancar-conta";
 import { BotaoLink, Cabecalho, Vazio } from "@/components/ui";
 import type { ModoDesconto } from "@/lib/calculo";
+import { whatsappDisponivel } from "@/lib/whatsapp";
 
 export default async function NovaConta({ searchParams }: { searchParams: Promise<{ cliente?: string }> }) {
   const { supabase, usina } = await contexto();
@@ -65,7 +66,7 @@ export default async function NovaConta({ searchParams }: { searchParams: Promis
         clientes={clientes.map((c) => ({ ...c, modo_desconto: c.modo_desconto as ModoDesconto, desconto_valor: Number(c.desconto_valor), cip_modo: c.cip_modo as "da_conta", cip_valor: Number(c.cip_valor ?? 0), cip_tabela_id: c.cip_tabela_id, cip_classe: c.cip_classe as "B1" | null }))}
         clienteInicial={cliente ?? null}
         vencimentoPadrao={somarDias(hojeBR(), usina.dias_vencimento)}
-        whatsappConfigurado={!!usina.whatsapp_instancia}
+        whatsappConfigurado={whatsappDisponivel(usina.whatsapp_instancia, "fatura")}
         bandeiraPadrao={Number(usina.bandeira_padrao ?? 0)}
         historico={[...porCliente.values()]}
         faixasCip={(faixas ?? []).map((f) => ({ ...f, classe: f.classe as "B1", tipo: f.tipo as "percentual", valor: Number(f.valor) }))}

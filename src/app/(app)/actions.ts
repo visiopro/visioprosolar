@@ -9,7 +9,7 @@ import { gerarPix } from "@/lib/pix";
 import { parseNumeroBR, soDigitos } from "@/lib/format";
 import { enviarFaturaPorWhatsapp, linkPortal } from "@/lib/faturas";
 import { montarBoasVindas } from "@/lib/boas-vindas";
-import { enviarTexto, usaWhatsAppOficial, whatsappDisponivel } from "@/lib/whatsapp";
+import { enviarBoasVindas, enviarTexto, usaWhatsAppOficial, whatsappDisponivel } from "@/lib/whatsapp";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 import { cobrar, obterGateway, segredos, NOMES_GATEWAY, type NomeGateway } from "@/lib/cobranca";
@@ -73,7 +73,12 @@ export async function salvarCliente(_: Estado, form: FormData): Promise<Estado> 
   } else {
     const { data: novo, error } = await supabase.from("clientes").insert(linha).select("id").single();
     if (error) return { erro: error.code === "23505" ? "Já existe um cliente com essa UC." : "Não foi possível salvar o cliente." };
-    if (usina.boas_vindas_ativo && novo) await mandarBoasVindas(supabase, usina, novo.id);
+    if (usina.boas_vindas_ativo && novo) {
+      const res = await mandarBoasVindas(supabase, usina, novo.id);
+      if (res.erro) {
+        console.error(`[salvarCliente] Falha no envio de boas-vindas para cliente ${novo.id}:`, res.erro);
+      }
+    }
   }
 
   revalidatePath("/clientes");
@@ -86,7 +91,7 @@ async function mandarBoasVindas(
   usina: Usina,
   clienteId: string,
 ): Promise<{ erro?: string }> {
-  if (!whatsappDisponivel(usina.whatsapp_instancia, "texto")) {
+  if (!whatsappDisponivel(usina.whatsapp_instancia, "boas_vindas")) {
     return { erro: usaWhatsAppOficial() ? "O número oficial da VisioPro ou o modelo de mensagem ainda não está configurado." : "WhatsApp da usina não conectado." };
   }
   const { data: c } = await supabase
@@ -97,6 +102,7 @@ async function mandarBoasVindas(
   if (!c) return { erro: "Cliente não encontrado." };
   if (!c.whatsapp) return { erro: "Cliente sem WhatsApp cadastrado." };
 
+  const link = linkPortal(c.portal_token);
   const texto = montarBoasVindas({
     texto: usina.boas_vindas_texto,
     cliente: c.nome,
@@ -104,14 +110,25 @@ async function mandarBoasVindas(
     uc: c.uc,
     distribuidora: c.distribuidora,
     regra: descreverRegra(c.modo_desconto as ModoDesconto, Number(c.desconto_valor)),
-    portal: linkPortal(c.portal_token),
+    portal: link,
   });
 
   try {
     const token = usaWhatsAppOficial() ? null : (await segredos(usina.id)).evolutionToken;
-    await enviarTexto({ instancia: usina.whatsapp_instancia, numero: c.whatsapp, texto, usinaNome: usina.nome, token });
+    await enviarBoasVindas({
+      instancia: usina.whatsapp_instancia,
+      numero: c.whatsapp,
+      texto,
+      usinaNome: usina.nome,
+      uc: c.uc,
+      distribuidora: c.distribuidora,
+      portal: link,
+      token,
+    });
   } catch (e) {
-    return { erro: erroDe(e) };
+    const msg = erroDe(e);
+    console.error(`[mandarBoasVindas] Erro ao enviar boas-vindas para cliente ${clienteId} (${c.whatsapp}):`, msg);
+    return { erro: msg };
   }
   await supabase.from("clientes").update({ boas_vindas_em: new Date().toISOString() }).eq("id", clienteId);
   await registrarEvento(supabase, usina.id, "boas_vindas_enviadas", clienteId);

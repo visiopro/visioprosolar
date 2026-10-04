@@ -1,6 +1,6 @@
 import "server-only";
 
-type UsoWhatsApp = "fatura" | "texto";
+type UsoWhatsApp = "fatura" | "texto" | "boas_vindas";
 
 function variavel(nome: string) {
   let v = (process.env[nome] ?? "").trim();
@@ -23,7 +23,11 @@ export function whatsappDisponivel(instancia: string | null, uso: UsoWhatsApp = 
   if (usaWhatsAppOficial()) {
     const comum = variavel("WHATSAPP_META_PHONE_NUMBER_ID") && variavel("WHATSAPP_META_ACCESS_TOKEN") &&
       /^v\d+\.\d+$/.test(variavel("WHATSAPP_META_API_VERSION"));
-    const modelo = uso === "fatura" ? variavel("WHATSAPP_TEMPLATE_FATURA") : variavel("WHATSAPP_TEMPLATE_TEXTO");
+    const modelo = uso === "fatura"
+      ? variavel("WHATSAPP_TEMPLATE_FATURA")
+      : uso === "boas_vindas"
+        ? (variavel("WHATSAPP_TEMPLATE_BOAS_VINDAS") || variavel("WHATSAPP_TEMPLATE_TEXTO"))
+        : variavel("WHATSAPP_TEMPLATE_TEXTO");
     return Boolean(comum && /^[a-z0-9_]+$/.test(modelo));
   }
   return Boolean(instancia);
@@ -56,6 +60,11 @@ async function respostaMeta(res: Response) {
 async function enviarTextoMeta(p: { numero: string; texto: string; usinaNome: string }) {
   const c = configuracaoMeta("WHATSAPP_TEMPLATE_TEXTO");
   const textoSemCabecalho = p.texto.replace(/^\*[^\n]+\*\n/, "");
+  // A Meta Cloud API proíbe quebras de linha (\r, \n), tabs ou mais de 4 espaços consecutivos em parâmetros.
+  const textoLimpo = textoSemCabecalho
+    .replace(/[\r\n\t]+/g, " • ")
+    .replace(/\s{4,}/g, " ")
+    .trim();
   const res = await fetch(`${c.base}/messages`, {
     method: "POST",
     headers: { authorization: `Bearer ${c.token}`, "content-type": "application/json" },
@@ -68,7 +77,38 @@ async function enviarTextoMeta(p: { numero: string; texto: string; usinaNome: st
         language: { code: c.idioma },
         components: [{ type: "body", parameters: [
           { type: "text", text: p.usinaNome },
-          { type: "text", text: textoSemCabecalho },
+          { type: "text", text: textoLimpo },
+        ] }],
+      },
+    }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  await respostaMeta(res);
+}
+
+async function enviarBoasVindasMeta(p: {
+  numero: string;
+  usinaNome: string;
+  uc: string;
+  distribuidora: string;
+  portal: string;
+}) {
+  const c = configuracaoMeta("WHATSAPP_TEMPLATE_BOAS_VINDAS");
+  const res = await fetch(`${c.base}/messages`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${c.token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: p.numero,
+      type: "template",
+      template: {
+        name: c.template,
+        language: { code: c.idioma },
+        components: [{ type: "body", parameters: [
+          { type: "text", text: p.usinaNome },
+          { type: "text", text: p.uc },
+          { type: "text", text: p.distribuidora },
+          { type: "text", text: p.portal },
         ] }],
       },
     }),
@@ -182,4 +222,41 @@ export async function enviarTexto(p: { instancia: string | null; numero: string;
     signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) throw new Error(`WhatsApp recusou o envio (${res.status}).`);
+}
+
+export async function enviarBoasVindas(p: {
+  instancia: string | null;
+  numero: string;
+  texto: string;
+  usinaNome: string;
+  uc: string;
+  distribuidora: string;
+  portal: string;
+  token?: string | null;
+}) {
+  if (usaWhatsAppOficial()) {
+    const templateBoasVindas = variavel("WHATSAPP_TEMPLATE_BOAS_VINDAS");
+    if (templateBoasVindas && /^[a-z0-9_]+$/.test(templateBoasVindas)) {
+      await enviarBoasVindasMeta({
+        numero: p.numero,
+        usinaNome: p.usinaNome,
+        uc: p.uc,
+        distribuidora: p.distribuidora,
+        portal: p.portal,
+      });
+      return;
+    }
+    // Fallback: se ainda não tiver o template específico aprovado, envia pelo modelo de texto padrão com quebras sanitizadas
+    await enviarTextoMeta({ numero: p.numero, texto: p.texto, usinaNome: p.usinaNome });
+    return;
+  }
+
+  // Evolution API: envia com as quebras normais
+  await enviarTexto({
+    instancia: p.instancia,
+    numero: p.numero,
+    texto: p.texto,
+    usinaNome: p.usinaNome,
+    token: p.token,
+  });
 }

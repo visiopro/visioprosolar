@@ -30,17 +30,22 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
       {clientes?.length ? (
         <Cartao className="divide-y divide-traco">
           {clientes.map((c) => (
-            <Link key={c.id} href={`/clientes/${c.id}`} className="flex items-center justify-between gap-4 px-4 py-3.5 hover:bg-relevo/50">
+            <Link key={c.id} href={`/clientes/${c.id}`} className="group flex items-center justify-between gap-4 px-4 py-3.5 hover:bg-relevo/50">
               <span className="min-w-0">
                 <span className={`block truncate ${c.ativo ? "" : "text-nevoa line-through"}`}>{c.nome}</span>
                 <span className="text-xs text-nevoa">
                   UC {c.uc} · {c.distribuidora}
                 </span>
               </span>
-              <span className="shrink-0 text-right text-sm text-nevoa">
-                {c.modo_desconto === "tarifa_fixa" ? `R$ ${numero(Number(c.desconto_valor), 4)}/kWh` : `${numero(Number(c.desconto_valor))}%`}
-                <span className="block text-[11px]">{MODOS[c.modo_desconto as ModoDesconto].rotulo.replace("% ", "")}</span>
-              </span>
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="text-right text-sm text-nevoa">
+                  {c.modo_desconto === "tarifa_fixa" ? `R$ ${numero(Number(c.desconto_valor), 4)}/kWh` : `${numero(Number(c.desconto_valor))}%`}
+                  <span className="block text-[11px]">{MODOS[c.modo_desconto as ModoDesconto].rotulo.replace("% ", "")}</span>
+                </span>
+                <span className="rounded-md border border-traco px-2 py-1 text-xs font-medium text-nevoa transition group-hover:border-nevoa group-hover:text-texto">
+                  Editar
+                </span>
+              </div>
             </Link>
           ))}
         </Cartao>

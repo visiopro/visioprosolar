@@ -4,6 +4,7 @@ import { contexto } from "@/lib/usina";
 import { brl, data, hojeBR, mesRef, nFatura } from "@/lib/format";
 import { alternarCliente } from "../../actions";
 import { FormCliente } from "@/components/form-cliente";
+import { BotaoExcluirCliente } from "@/components/botao-excluir-cliente";
 import { LinkPortal, ReenviarBoasVindas } from "@/components/portal";
 import { linkPortal } from "@/lib/faturas";
 import { Botao, Cabecalho, Cartao, Status } from "@/components/ui";
@@ -29,11 +30,22 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
           <FormCliente c={{ ...c, modo_desconto: c.modo_desconto as ModoDesconto, desconto_valor: Number(c.desconto_valor), cip_modo: c.cip_modo, cip_valor: Number(c.cip_valor ?? 0), cip_tabela_id: c.cip_tabela_id, cip_classe: c.cip_classe }}
             tabelas={tabelas ?? []} />
         </Cartao>
-        <form action={alternarCliente.bind(null, c.id, !c.ativo)} className="mt-4">
-          <Botao variante={c.ativo ? "perigo" : "secundario"} type="submit">
-            {c.ativo ? "Inativar cliente" : "Reativar cliente"}
-          </Botao>
-        </form>
+        <div className="mt-6 rounded-[var(--radius-cartao)] border border-traco bg-painel p-5">
+          <h3 className="text-sm font-semibold">Ações da conta</h3>
+          <p className="mt-1 text-xs text-nevoa">
+            {c.ativo
+              ? "Inative para pausar novos lançamentos sem perder o histórico, ou exclua se o cadastro tiver sido feito por engano."
+              : "Este cliente está inativo. Você pode reativá-lo para voltar a emitir faturas ou excluí-lo definitivamente caso não possua faturas."}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <form action={alternarCliente.bind(null, c.id, !c.ativo)}>
+              <Botao variante={c.ativo ? "secundario" : "primario"} type="submit">
+                {c.ativo ? "Inativar cliente" : "Reativar cliente"}
+              </Botao>
+            </form>
+            <BotaoExcluirCliente id={c.id} nome={c.nome} />
+          </div>
+        </div>
       </div>
 
       <aside>

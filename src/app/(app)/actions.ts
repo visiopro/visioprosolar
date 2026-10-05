@@ -149,6 +149,40 @@ export async function alternarCliente(id: string, ativo: boolean) {
   revalidatePath(`/clientes/${id}`);
 }
 
+export async function excluirCliente(_: Estado, form: FormData): Promise<Estado> {
+  const { supabase, usina, papel } = await contexto();
+  const id = txt(form, "id");
+  if (!id) return { erro: "Cliente não informado." };
+  if (papel !== "dono") return { erro: "Apenas o proprietário da usina pode excluir clientes." };
+
+  // Verifica se o cliente possui faturas emitidas
+  const { count, error: errCount } = await supabase
+    .from("faturas")
+    .select("id", { count: "exact", head: true })
+    .eq("cliente_id", id);
+
+  if (errCount) return { erro: "Não foi possível verificar as faturas do cliente." };
+
+  if (count && count > 0) {
+    return {
+      erro: `Este cliente possui ${count} fatura(s) cadastrada(s). Para preservar o histórico financeiro da usina, inative o cliente em vez de excluí-lo.`,
+    };
+  }
+
+  // Desvincula contas_energia que apontam para este cliente
+  await supabase.from("contas_energia").update({ cliente_id: null }).eq("cliente_id", id);
+
+  // Deleta mensagens do portal de chat se houver
+  await supabase.from("chat_mensagens").delete().eq("cliente_id", id);
+
+  const { error } = await supabase.from("clientes").delete().eq("id", id).eq("usina_id", usina.id);
+  if (error) return { erro: "Não foi possível excluir o cliente: " + error.message };
+
+  await registrarEvento(supabase, usina.id, "cliente_excluido", id);
+  revalidatePath("/clientes");
+  redirect("/clientes");
+}
+
 // ------------------------------------------------------------------ faturas
 
 export type DadosEmissao = {

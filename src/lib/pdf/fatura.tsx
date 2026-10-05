@@ -7,7 +7,7 @@ import { descreverRegra, type ModoDesconto } from "../calculo";
 Font.registerHyphenationCallback((palavra) => [palavra]);
 
 export type DadosFaturaPdf = {
-  logo?: Buffer | null;       // PNG/JPEG da usina
+  logo?: Buffer | null; // PNG/JPEG da usina
   numero: number;
   referencia: string;
   vencimento: string;
@@ -34,40 +34,363 @@ export type DadosFaturaPdf = {
 };
 
 const NAVY = "#0B1A30";
-const OURO = "#C9962E";
-const TINTA = "#1B2638";
-const CINZA = "#6B7890";
-const LINHA = "#E3E7EE";
-const VERDE = "#1F8A5B";
+const OURO = "#D97706";
+const TINTA = "#0F172A";
+const CINZA = "#475569";
+const CINZA_CLARO = "#64748B";
+const LINHA = "#CBD5E1";
+const VERDE = "#15803D";
+const FUNDO_VERDE = "#ECFDF5";
+const FUNDO_BLOCO = "#F8FAFC";
 
 const s = StyleSheet.create({
-  pagina: { fontFamily: "Helvetica", fontSize: 10, color: TINTA, paddingBottom: 50 },
-  topo: { backgroundColor: NAVY, paddingHorizontal: 40, paddingTop: 34, paddingBottom: 28, flexDirection: "row", justifyContent: "space-between" },
-  usina: { color: "#FFFFFF", fontSize: 20, fontFamily: "Helvetica-Bold" },
-  usinaDoc: { color: "#9FB0CA", fontSize: 9, marginTop: 4 },
-  logoCaixa: { backgroundColor: "#FFFFFF", borderRadius: 6, padding: 6, marginRight: 14, width: 116, height: 60, alignItems: "center", justifyContent: "center" },
-  selo: { alignItems: "flex-end" },
-  seloTit: { color: OURO, fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 1 },
-  seloNum: { color: "#FFFFFF", fontSize: 16, fontFamily: "Helvetica-Bold", marginTop: 3 },
-  seloRef: { color: "#9FB0CA", fontSize: 9, marginTop: 3 },
-  faixa: { height: 4, backgroundColor: OURO },
-  corpo: { paddingHorizontal: 40, paddingTop: 24 },
-  bloco: { flexDirection: "row", justifyContent: "space-between", marginBottom: 22 },
-  rotulo: { fontSize: 8, color: CINZA, marginBottom: 3 },
-  valor: { fontSize: 11, fontFamily: "Helvetica-Bold" },
-  destaque: { borderWidth: 1, borderColor: LINHA, borderRadius: 6, flexDirection: "row", marginBottom: 22 },
-  destaqueLado: { flex: 1, padding: 16 },
-  total: { fontSize: 26, fontFamily: "Helvetica-Bold", color: NAVY, marginTop: 2 },
-  riscado: { fontSize: 12, color: CINZA, textDecoration: "line-through", marginTop: 4 },
-  economia: { backgroundColor: "#EDF7F1", borderLeftWidth: 1, borderLeftColor: LINHA, flex: 1, padding: 16 },
-  economiaValor: { fontSize: 18, fontFamily: "Helvetica-Bold", color: VERDE, marginTop: 2 },
-  tituloSecao: { fontSize: 11, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 8 },
-  linha: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: LINHA },
-  linhaFinal: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 9 },
-  pix: { marginTop: 22, borderWidth: 1, borderColor: OURO, borderRadius: 6, padding: 14, flexDirection: "row", alignItems: "center" },
-  pixCodigo: { fontFamily: "Courier", fontSize: 7.5, color: TINTA, lineHeight: 1.35 },
-  rodape: { position: "absolute", bottom: 22, left: 40, right: 40, fontSize: 7.5, color: CINZA, borderTopWidth: 1, borderTopColor: LINHA, paddingTop: 8, flexDirection: "row", justifyContent: "space-between" },
-  marca: { position: "absolute", top: 330, left: 90, fontSize: 70, color: "#C0392B", opacity: 0.15, transform: "rotate(-25deg)", fontFamily: "Helvetica-Bold" },
+  pagina: {
+    fontFamily: "Helvetica",
+    fontSize: 10,
+    color: TINTA,
+    paddingBottom: 45,
+    backgroundColor: "#FFFFFF",
+  },
+  topo: {
+    backgroundColor: NAVY,
+    paddingHorizontal: 36,
+    paddingTop: 24,
+    paddingBottom: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  usina: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontFamily: "Helvetica-Bold",
+  },
+  usinaDoc: {
+    color: "#94A3B8",
+    fontSize: 8.5,
+    marginTop: 3,
+  },
+  logoCaixa: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 6,
+    padding: 6,
+    marginRight: 14,
+    width: 110,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selo: {
+    alignItems: "flex-end",
+  },
+  seloTit: {
+    color: "#FBBF24",
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 1,
+  },
+  seloNum: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontFamily: "Helvetica-Bold",
+    marginTop: 2,
+  },
+  seloRef: {
+    color: "#94A3B8",
+    fontSize: 9.5,
+    marginTop: 2,
+  },
+  faixa: {
+    height: 4,
+    backgroundColor: OURO,
+  },
+  corpo: {
+    paddingHorizontal: 36,
+    paddingTop: 16,
+  },
+
+  // Card Cliente e Vencimento
+  cardCliente: {
+    borderWidth: 1,
+    borderColor: LINHA,
+    borderRadius: 6,
+    backgroundColor: FUNDO_BLOCO,
+    padding: 12,
+    marginBottom: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  clienteRotulo: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    color: CINZA_CLARO,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  clienteNome: {
+    fontSize: 13,
+    fontFamily: "Helvetica-Bold",
+    color: NAVY,
+    marginTop: 2,
+  },
+  clienteDetalhes: {
+    fontSize: 9,
+    color: CINZA,
+    marginTop: 3,
+  },
+  vencimentoCaixa: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    minWidth: 130,
+  },
+  vencimentoRotulo: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    color: CINZA_CLARO,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  vencimentoValor: {
+    fontSize: 14,
+    fontFamily: "Helvetica-Bold",
+    color: NAVY,
+    marginTop: 2,
+  },
+  badgePaga: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: VERDE,
+    marginTop: 3,
+  },
+
+  // Card Resumo Financeiro
+  destaque: {
+    borderWidth: 1,
+    borderColor: LINHA,
+    borderRadius: 6,
+    flexDirection: "row",
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  destaqueLado: {
+    flex: 1.2,
+    padding: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  destaqueRotulo: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: CINZA_CLARO,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  total: {
+    fontSize: 28,
+    fontFamily: "Helvetica-Bold",
+    color: NAVY,
+    marginTop: 2,
+  },
+  riscado: {
+    fontSize: 10.5,
+    color: CINZA_CLARO,
+    textDecoration: "line-through",
+    marginTop: 3,
+  },
+  economia: {
+    backgroundColor: FUNDO_VERDE,
+    borderLeftWidth: 1,
+    borderLeftColor: "#A7F3D0",
+    flex: 1,
+    padding: 12,
+  },
+  economiaRotulo: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: VERDE,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  economiaValor: {
+    fontSize: 20,
+    fontFamily: "Helvetica-Bold",
+    color: VERDE,
+    marginTop: 2,
+  },
+  economiaAcumulada: {
+    fontSize: 8.5,
+    color: "#065F46",
+    marginTop: 4,
+  },
+
+  // Tabela de Cálculo
+  tabelaCard: {
+    borderWidth: 1,
+    borderColor: LINHA,
+    borderRadius: 6,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  tabelaCabecalho: {
+    backgroundColor: NAVY,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  tabelaTitulo: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  tabelaSub: {
+    fontSize: 8,
+    color: "#94A3B8",
+  },
+  linha: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 6.5,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: LINHA,
+  },
+  linhaPar: {
+    backgroundColor: "#FFFFFF",
+  },
+  linhaImpar: {
+    backgroundColor: FUNDO_BLOCO,
+  },
+  linhaDesconto: {
+    backgroundColor: FUNDO_VERDE,
+    borderBottomColor: "#A7F3D0",
+  },
+  linhaFinal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#F1F5F9",
+  },
+  itemTexto: {
+    fontSize: 9.5,
+    color: TINTA,
+  },
+  itemValor: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: TINTA,
+  },
+  descontoTexto: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: VERDE,
+  },
+  descontoValor: {
+    fontSize: 10.5,
+    fontFamily: "Helvetica-Bold",
+    color: VERDE,
+  },
+  totalTexto: {
+    fontSize: 10.5,
+    fontFamily: "Helvetica-Bold",
+    color: NAVY,
+  },
+  totalValor: {
+    fontSize: 13,
+    fontFamily: "Helvetica-Bold",
+    color: NAVY,
+  },
+
+  // PIX
+  pix: {
+    borderWidth: 1,
+    borderColor: "#E5A93C",
+    borderRadius: 6,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFDF5",
+  },
+  pixQr: {
+    width: 96,
+    height: 96,
+    marginRight: 14,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+  },
+  pixTitulo: {
+    fontFamily: "Helvetica-Bold",
+    color: NAVY,
+    fontSize: 11,
+  },
+  pixInstrucao: {
+    fontSize: 8.5,
+    color: CINZA,
+    marginTop: 2,
+  },
+  pixFavorecido: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: TINTA,
+    marginTop: 2,
+  },
+  pixOutras: {
+    fontSize: 8.5,
+    color: CINZA,
+    marginTop: 3,
+  },
+  pixCaixaCodigo: {
+    marginTop: 6,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 4,
+    padding: 6,
+  },
+  pixCodigo: {
+    fontFamily: "Courier",
+    fontSize: 7,
+    color: TINTA,
+    lineHeight: 1.3,
+  },
+
+  // Rodapé
+  rodape: {
+    position: "absolute",
+    bottom: 14,
+    left: 36,
+    right: 36,
+    fontSize: 7.5,
+    color: CINZA_CLARO,
+    borderTopWidth: 1,
+    borderTopColor: LINHA,
+    paddingTop: 6,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  marca: {
+    position: "absolute",
+    top: 310,
+    left: 90,
+    fontSize: 70,
+    color: "#C0392B",
+    opacity: 0.15,
+    transform: "rotate(-25deg)",
+    fontFamily: "Helvetica-Bold",
+  },
 });
 
 function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
@@ -82,7 +405,7 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             {f.logo ? (
               <View style={s.logoCaixa}>
-                <Image src={f.logo} style={{ maxWidth: 104, maxHeight: 48, objectFit: "contain" }} />
+                <Image src={f.logo} style={{ maxWidth: 98, maxHeight: 42, objectFit: "contain" }} />
               </View>
             ) : null}
             <View>
@@ -101,115 +424,132 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
         {f.status === "cancelada" ? <Text style={s.marca}>CANCELADA</Text> : null}
 
         <View style={s.corpo}>
-          <View style={s.bloco}>
-            <View style={{ flex: 2 }}>
-              <Text style={s.rotulo}>Cliente</Text>
-              <Text style={s.valor}>{cliente.nome}</Text>
-              <Text style={{ fontSize: 9, color: CINZA, marginTop: 3 }}>
+          {/* Card Cliente e Vencimento */}
+          <View style={s.cardCliente}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.clienteRotulo}>Unidade Consumidora / Cliente</Text>
+              <Text style={s.clienteNome}>{cliente.nome}</Text>
+              <Text style={s.clienteDetalhes}>
                 UC {cliente.uc} · {cliente.distribuidora}
                 {cliente.documento ? ` · ${cliente.documento}` : ""}
               </Text>
             </View>
-            <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <Text style={s.rotulo}>Vencimento</Text>
-              <Text style={s.valor}>{data(f.vencimento)}</Text>
-              {f.status === "paga" ? <Text style={{ fontSize: 9, color: VERDE, marginTop: 3 }}>Pagamento confirmado</Text> : null}
+            <View style={s.vencimentoCaixa}>
+              <Text style={s.vencimentoRotulo}>Data de Vencimento</Text>
+              <Text style={s.vencimentoValor}>{data(f.vencimento)}</Text>
+              {f.status === "paga" ? <Text style={s.badgePaga}>Pagamento confirmado</Text> : null}
             </View>
           </View>
 
+          {/* Destaque Financeiro */}
           <View style={s.destaque}>
             <View style={s.destaqueLado}>
-              <Text style={s.rotulo}>Total a pagar</Text>
+              <Text style={s.destaqueRotulo}>Total a pagar</Text>
               <Text style={s.total}>{brl(f.total_centavos)}</Text>
               <Text style={s.riscado}>Sem a usina: {brl(f.sem_usina_centavos)}</Text>
             </View>
             <View style={s.economia}>
-              <Text style={s.rotulo}>Sua economia neste mês</Text>
+              <Text style={s.economiaRotulo}>Sua economia neste mês</Text>
               <Text style={s.economiaValor}>{brl(f.economia_centavos)}</Text>
-              <Text style={{ fontSize: 9, color: CINZA, marginTop: 6 }}>
-                Economia acumulada: {brl(f.economia_acumulada_centavos)}
+              <Text style={s.economiaAcumulada}>
+                Economia total acumulada: {brl(f.economia_acumulada_centavos)}
               </Text>
             </View>
           </View>
 
-          <Text style={s.tituloSecao}>Como calculamos</Text>
-          {f.modo_desconto === "percentual_conta_cheia" ? (
-            f.sem_usina_ajustado ? (
-              <View style={s.linha}>
-                <Text>Sua conta de energia no mês ({numero(f.consumo_kwh ?? 0)} kWh)</Text>
-                <Text>{brl(f.sem_usina_centavos)}</Text>
-              </View>
+          {/* Tabela de Detalhamento do Cálculo */}
+          <View style={s.tabelaCard}>
+            <View style={s.tabelaCabecalho}>
+              <Text style={s.tabelaTitulo}>Detalhamento do Cálculo</Text>
+              <Text style={s.tabelaSub}>Referência: {ref}</Text>
+            </View>
+
+            {f.modo_desconto === "percentual_conta_cheia" ? (
+              f.sem_usina_ajustado ? (
+                <View style={[s.linha, s.linhaPar]}>
+                  <Text style={s.itemTexto}>Sua conta de energia no mês ({numero(f.consumo_kwh ?? 0)} kWh)</Text>
+                  <Text style={s.itemValor}>{brl(f.sem_usina_centavos)}</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={[s.linha, s.linhaPar]}>
+                    <Text style={s.itemTexto}>Consumo do mês</Text>
+                    <Text style={s.itemValor}>{numero(f.consumo_kwh ?? 0)} kWh</Text>
+                  </View>
+                  <View style={[s.linha, s.linhaImpar]}>
+                    <Text style={s.itemTexto}>Tarifa da distribuidora (com tributos)</Text>
+                    <Text style={s.itemValor}>R$ {numero(f.tarifa, 8)}/kWh</Text>
+                  </View>
+                  <View style={[s.linha, s.linhaPar]}>
+                    <Text style={s.itemTexto}>Energia (consumo × tarifa)</Text>
+                    <Text style={s.itemValor}>{brl(f.sem_usina_centavos - f.bandeira_centavos - f.iluminacao_centavos)}</Text>
+                  </View>
+                  {f.bandeira_centavos > 0 ? (
+                    <View style={[s.linha, s.linhaImpar]}>
+                      <Text style={s.itemTexto}>Bandeira tarifária</Text>
+                      <Text style={s.itemValor}>{brl(f.bandeira_centavos)}</Text>
+                    </View>
+                  ) : null}
+                  {f.iluminacao_centavos > 0 ? (
+                    <View style={[s.linha, s.linhaPar]}>
+                      <Text style={s.itemTexto}>Iluminação pública</Text>
+                      <Text style={s.itemValor}>{brl(f.iluminacao_centavos)}</Text>
+                    </View>
+                  ) : null}
+                  <View style={[s.linha, s.linhaImpar]}>
+                    <Text style={[s.itemTexto, { fontFamily: "Helvetica-Bold" }]}>Sua conta de energia sem a usina</Text>
+                    <Text style={[s.itemValor, { fontFamily: "Helvetica-Bold" }]}>{brl(f.sem_usina_centavos)}</Text>
+                  </View>
+                </>
+              )
             ) : (
               <>
-                <View style={s.linha}>
-                  <Text>Consumo do mês</Text>
-                  <Text>{numero(f.consumo_kwh ?? 0)} kWh</Text>
+                <View style={[s.linha, s.linhaPar]}>
+                  <Text style={s.itemTexto}>Energia recebida da usina</Text>
+                  <Text style={s.itemValor}>{numero(f.compensada_kwh)} kWh</Text>
                 </View>
-                <View style={s.linha}>
-                  <Text>Tarifa da distribuidora (com tributos)</Text>
-                  <Text>R$ {numero(f.tarifa, 8)}/kWh</Text>
+                <View style={[s.linha, s.linhaImpar]}>
+                  <Text style={s.itemTexto}>Tarifa da distribuidora (com tributos)</Text>
+                  <Text style={s.itemValor}>R$ {numero(f.tarifa, 8)}/kWh</Text>
                 </View>
-                <View style={s.linha}>
-                  <Text>Energia (consumo × tarifa)</Text>
-                  <Text>{brl(f.sem_usina_centavos - f.bandeira_centavos - f.iluminacao_centavos)}</Text>
-                </View>
-                {f.bandeira_centavos > 0 ? (
-                  <View style={s.linha}>
-                    <Text>Bandeira tarifária</Text>
-                    <Text>{brl(f.bandeira_centavos)}</Text>
-                  </View>
-                ) : null}
-                {f.iluminacao_centavos > 0 ? (
-                  <View style={s.linha}>
-                    <Text>Iluminação pública</Text>
-                    <Text>{brl(f.iluminacao_centavos)}</Text>
-                  </View>
-                ) : null}
-                <View style={s.linha}>
-                  <Text style={{ fontFamily: "Helvetica-Bold" }}>Sua conta de energia sem a usina</Text>
-                  <Text style={{ fontFamily: "Helvetica-Bold" }}>{brl(f.sem_usina_centavos)}</Text>
+                <View style={[s.linha, s.linhaPar]}>
+                  <Text style={s.itemTexto}>Valor dessa energia sem a usina</Text>
+                  <Text style={s.itemValor}>{brl(f.sem_usina_centavos)}</Text>
                 </View>
               </>
-            )
-          ) : (
-            <>
-              <View style={s.linha}>
-                <Text>Energia recebida da usina</Text>
-                <Text>{numero(f.compensada_kwh)} kWh</Text>
-              </View>
-              <View style={s.linha}>
-                <Text>Tarifa da distribuidora (com tributos)</Text>
-                <Text>R$ {numero(f.tarifa, 8)}/kWh</Text>
-              </View>
-              <View style={s.linha}>
-                <Text>Valor dessa energia sem a usina</Text>
-                <Text>{brl(f.sem_usina_centavos)}</Text>
-              </View>
-            </>
-          )}
-          <View style={s.linha}>
-            <Text>{regra}</Text>
-            <Text style={{ color: VERDE }}>- {brl(f.economia_centavos)}</Text>
-          </View>
-          <View style={s.linhaFinal}>
-            <Text style={{ fontFamily: "Helvetica-Bold" }}>Total da fatura da usina</Text>
-            <Text style={{ fontFamily: "Helvetica-Bold" }}>{brl(f.total_centavos)}</Text>
+            )}
+
+            {/* Linha de Economia */}
+            <View style={[s.linha, s.linhaDesconto]}>
+              <Text style={s.descontoTexto}>{regra}</Text>
+              <Text style={s.descontoValor}>- {brl(f.economia_centavos)}</Text>
+            </View>
+
+            {/* Total Final */}
+            <View style={s.linhaFinal}>
+              <Text style={s.totalTexto}>Total da fatura da usina</Text>
+              <Text style={s.totalValor}>{brl(f.total_centavos)}</Text>
+            </View>
           </View>
 
+          {/* Seção PIX */}
           {f.pix_copia_cola && f.status === "pendente" ? (
             <View style={s.pix} wrap={false}>
-              {qr ? <Image src={qr} style={{ width: 96, height: 96, marginRight: 16 }} /> : null}
+              {qr ? <Image src={qr} style={s.pixQr} /> : null}
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: "Helvetica-Bold", color: NAVY }}>Pague com PIX</Text>
-                <Text style={{ fontSize: 8.5, color: CINZA, marginTop: 2 }}>
-                  Aponte a câmera do app do banco para o QR code ou use o copia e cola. Favorecido: {usina.pix_favorecido || usina.nome}.
+                <Text style={s.pixTitulo}>Pague com PIX</Text>
+                <Text style={s.pixInstrucao}>
+                  Aponte a câmera do aplicativo do seu banco para o QR code ou utilize o código copia e cola abaixo.
+                </Text>
+                <Text style={s.pixFavorecido}>
+                  Favorecido: {usina.pix_favorecido || usina.nome}
                 </Text>
                 {f.cobranca_link ? (
-                  <Text style={{ fontSize: 8.5, color: CINZA, marginTop: 4 }}>
-                    Outras formas de pagamento: <Link src={f.cobranca_link} style={{ color: NAVY }}>{f.cobranca_link}</Link>
+                  <Text style={s.pixOutras}>
+                    Outras formas de pagamento: <Link src={f.cobranca_link} style={{ color: NAVY, fontFamily: "Helvetica-Bold" }}>{f.cobranca_link}</Link>
                   </Text>
                 ) : null}
-                <View style={{ marginTop: 6 }}>
+                <View style={s.pixCaixaCodigo}>
                   {(f.pix_copia_cola.match(/.{1,64}/g) ?? []).map((trecho, i) => (
                     <Text key={i} style={s.pixCodigo}>{trecho}</Text>
                   ))}
@@ -220,7 +560,7 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
         </View>
 
         <View style={s.rodape} fixed>
-          <Text>{f.modo_desconto === "percentual_conta_cheia" ? "Fatura de energia solar calculada a partir da conta da distribuidora do mês de referência." : "Fatura de energia por geração compartilhada. A conta da distribuidora continua sendo paga à parte."}</Text>
+          <Text>{f.modo_desconto === "percentual_conta_cheia" ? "Fatura calculada a partir da conta da distribuidora do mês de referência." : "Fatura de geração compartilhada. A conta da distribuidora continua sendo paga à parte."}</Text>
           <Text>VisioPro Solar</Text>
         </View>
       </Page>

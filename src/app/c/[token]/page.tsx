@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { brl, data, hojeBR, mesExtenso, mesRef, nFatura } from "@/lib/format";
+import { brl, data, hojeBR, mesExtenso, mesRef, nFatura, numero } from "@/lib/format";
 import { urlLogo } from "@/lib/usina";
+import { descreverRegra, type ModoDesconto } from "@/lib/calculo";
 import { ChatPortal, CopiarPix } from "@/components/portal";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export default async function Portal({ params }: { params: Promise<{ token: stri
 
   const { data: faturas } = await admin
     .from("faturas")
-    .select("id, numero, referencia, vencimento, status, total_centavos, economia_centavos, sem_usina_centavos, pix_copia_cola, cobranca_link, paga_em")
+    .select("id, numero, referencia, vencimento, status, total_centavos, economia_centavos, sem_usina_centavos, pix_copia_cola, cobranca_link, paga_em, modo_desconto, desconto_valor, compensada_kwh, consumo_kwh, tarifa, bandeira_centavos, iluminacao_centavos, sem_usina_ajustado, valor_conta_centavos")
     .eq("cliente_id", cliente.id)
     .neq("status", "cancelada")
     .order("referencia", { ascending: false })
@@ -66,24 +67,52 @@ export default async function Portal({ params }: { params: Promise<{ token: stri
           <p className="mt-1 text-sm text-nevoa">Assim que a primeira for emitida, ela aparece nesta página.</p>
         </div>
       ) : (
-        <section className="mt-6 rounded-[var(--radius-cartao)] border border-traco bg-painel p-6">
-          <p className="text-sm capitalize text-nevoa">{mesExtenso(atual.referencia)}</p>
-          {atual.status === "paga" ? (
+        <section className="mt-6 space-y-4">
+          {/* Card principal */}
+          <div className="rounded-[var(--radius-cartao)] border border-traco bg-painel p-6">
+            <p className="text-sm capitalize text-nevoa">{mesExtenso(atual.referencia)}</p>
+            {atual.status === "paga" ? (
+              <>
+                <p className="mt-2 text-3xl font-semibold text-economia">Fatura paga</p>
+                <p className="mt-1 text-sm text-nevoa">
+                  {brl(Number(atual.total_centavos))} · recebida em {data(atual.paga_em)}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-1 text-sm text-nevoa line-through">Sem a usina: {brl(Number(atual.sem_usina_centavos))}</p>
+                <p className="text-[40px] font-semibold leading-none tracking-tight">{brl(Number(atual.total_centavos))}</p>
+                <p className={atual.vencimento < hoje ? "mt-2 text-sm text-erro" : "mt-2 text-sm text-nevoa"}>
+                  {atual.vencimento < hoje ? "Venceu" : "Vence"} em {data(atual.vencimento)}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Economia destaque */}
+          {Number(atual.economia_centavos) > 0 ? (
+            <div className="flex items-center gap-3 rounded-[var(--radius-cartao)] border border-economia/30 bg-economia/5 px-5 py-4">
+              <span className="text-2xl">💰</span>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-economia/70">Sua economia neste mês</p>
+                <p className="text-xl font-semibold text-economia">{brl(Number(atual.economia_centavos))}</p>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Detalhamento do cálculo */}
+          <div className="rounded-[var(--radius-cartao)] border border-traco overflow-hidden">
+            <div className="bg-[var(--color-noite,#0B1A30)] px-4 py-2.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/90">Detalhamento do cálculo</p>
+            </div>
+            <DetalheCalculo fatura={atual} />
+          </div>
+
+          {/* PIX e ações de pagamento */}
+          {atual.status === "pendente" ? (
             <>
-              <p className="mt-2 text-3xl font-semibold text-economia">Fatura paga</p>
-              <p className="mt-1 text-sm text-nevoa">
-                {brl(Number(atual.total_centavos))} · recebida em {data(atual.paga_em)}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="mt-1 text-sm text-nevoa line-through">Sem a usina: {brl(Number(atual.sem_usina_centavos))}</p>
-              <p className="text-[40px] font-semibold leading-none tracking-tight">{brl(Number(atual.total_centavos))}</p>
-              <p className={atual.vencimento < hoje ? "mt-2 text-sm text-erro" : "mt-2 text-sm text-nevoa"}>
-                {atual.vencimento < hoje ? "Venceu" : "Vence"} em {data(atual.vencimento)}
-              </p>
               {qr ? (
-                <div className="mt-5 rounded-[var(--radius-campo)] bg-white p-4 text-center">
+                <div className="rounded-[var(--radius-campo)] bg-white p-4 text-center border border-traco">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={qr} alt="QR code do PIX" className="mx-auto h-44 w-44" />
                   <p className="mt-2 text-xs text-slate-600">Aponte a câmera do app do seu banco</p>
@@ -95,19 +124,20 @@ export default async function Portal({ params }: { params: Promise<{ token: stri
                   href={atual.cobranca_link}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-2 block rounded-[var(--radius-campo)] border border-traco px-4 py-3 text-center hover:border-nevoa"
+                  className="block rounded-[var(--radius-campo)] border border-traco px-4 py-3 text-center hover:border-nevoa"
                 >
                   Outras formas de pagamento
                 </a>
               ) : null}
             </>
-          )}
+          ) : null}
+
           <a
             href={`/api/portal/${token}/${atual.id}/pdf`}
             target="_blank"
-            className="mt-2 block rounded-[var(--radius-campo)] border border-traco px-4 py-3 text-center hover:border-nevoa"
+            className="block rounded-[var(--radius-campo)] border border-traco px-4 py-3 text-center hover:border-nevoa"
           >
-            Baixar a fatura em PDF
+            📄 Baixar a fatura em PDF
           </a>
         </section>
       )}
@@ -149,5 +179,68 @@ export default async function Portal({ params }: { params: Promise<{ token: stri
         A conta da distribuidora continua chegando normalmente. Dúvidas? Fale com {usina.nome}.
       </p>
     </main>
+  );
+}
+
+/** Componente de detalhamento inline do cálculo da fatura */
+function DetalheCalculo({ fatura: f }: {
+  fatura: {
+    modo_desconto: string;
+    desconto_valor: number;
+    consumo_kwh: number | null;
+    compensada_kwh: number;
+    tarifa: number;
+    bandeira_centavos: number;
+    iluminacao_centavos: number;
+    sem_usina_centavos: number;
+    sem_usina_ajustado: boolean;
+    economia_centavos: number;
+    total_centavos: number;
+  };
+}) {
+  const modo = f.modo_desconto as ModoDesconto;
+  const regra = descreverRegra(modo, Number(f.desconto_valor));
+  const bandeira = Number(f.bandeira_centavos ?? 0);
+  const ilum = Number(f.iluminacao_centavos ?? 0);
+  const semUsina = Number(f.sem_usina_centavos);
+
+  const linhas: [string, string, boolean?][] = [];
+
+  if (modo === "percentual_conta_cheia") {
+    if (f.sem_usina_ajustado) {
+      linhas.push([`Conta de energia (${numero(Number(f.consumo_kwh ?? 0))} kWh)`, brl(semUsina)]);
+    } else {
+      linhas.push(["Consumo do mês", `${numero(Number(f.consumo_kwh ?? 0))} kWh`]);
+      linhas.push(["Tarifa da distribuidora", `R$ ${numero(Number(f.tarifa), 8)}/kWh`]);
+      linhas.push(["Energia (consumo × tarifa)", brl(semUsina - bandeira - ilum)]);
+      if (bandeira > 0) linhas.push(["Bandeira tarifária", brl(bandeira)]);
+      if (ilum > 0) linhas.push(["Iluminação pública", brl(ilum)]);
+      linhas.push(["Conta sem a usina", brl(semUsina), true]);
+    }
+  } else {
+    linhas.push(["Energia recebida da usina", `${numero(Number(f.compensada_kwh))} kWh`]);
+    linhas.push(["Tarifa da distribuidora", `R$ ${numero(Number(f.tarifa), 8)}/kWh`]);
+    linhas.push(["Sem a usina", brl(semUsina)]);
+  }
+
+  return (
+    <div className="divide-y divide-traco">
+      {linhas.map(([label, value, bold], i) => (
+        <div key={i} className={`flex justify-between gap-4 px-4 py-2.5 text-sm ${i % 2 === 0 ? "bg-painel" : "bg-relevo/30"}`}>
+          <span className={`text-nevoa ${bold ? "font-semibold text-tinta" : ""}`}>{label}</span>
+          <span className={bold ? "font-semibold" : ""}>{value}</span>
+        </div>
+      ))}
+      {/* Economia */}
+      <div className="flex justify-between gap-4 px-4 py-2.5 text-sm bg-economia/5">
+        <span className="font-semibold text-economia">{regra}</span>
+        <span className="font-semibold text-economia">- {brl(Number(f.economia_centavos))}</span>
+      </div>
+      {/* Total */}
+      <div className="flex justify-between gap-4 px-4 py-3 text-sm bg-relevo/50">
+        <span className="font-bold">Total da fatura</span>
+        <span className="font-bold text-lg">{brl(Number(f.total_centavos))}</span>
+      </div>
+    </div>
   );
 }

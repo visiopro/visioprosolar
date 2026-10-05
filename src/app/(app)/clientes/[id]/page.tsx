@@ -5,7 +5,8 @@ import { brl, data, hojeBR, mesRef, nFatura } from "@/lib/format";
 import { alternarCliente } from "../../actions";
 import { FormCliente } from "@/components/form-cliente";
 import { BotaoExcluirCliente } from "@/components/botao-excluir-cliente";
-import { LinkPortal, ReenviarBoasVindas } from "@/components/portal";
+import { BotaoBoasVindasManual } from "@/components/botao-boas-vindas-manual";
+import { LinkPortal } from "@/components/portal";
 import { linkPortal } from "@/lib/faturas";
 import { Botao, Cabecalho, Cartao, Status } from "@/components/ui";
 import type { ModoDesconto } from "@/lib/calculo";
@@ -54,12 +55,36 @@ export default async function Cliente({ params }: { params: Promise<{ id: string
           <p className="mt-1 text-2xl font-semibold text-economia">{brl(economia)}</p>
         </Cartao>
         <Cartao className="mb-4 p-5">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Boas-vindas</h3>
+            {c.boas_vindas_em ? (
+              <span className="rounded-md bg-economia/12 px-2 py-0.5 text-xs font-medium text-economia">
+                Enviada
+              </span>
+            ) : (
+              <span className="rounded-md bg-alerta/12 px-2 py-0.5 text-xs font-medium text-alerta">
+                Pendente
+              </span>
+            )}
+          </div>
+          <p className="mt-1.5 text-xs text-nevoa">
+            {c.boas_vindas_em
+              ? `Mensagem enviada no WhatsApp em ${data(c.boas_vindas_em)}.`
+              : "Apresenta a usina ao cliente, explica a primeira fatura e envia o link do portal."}
+          </p>
+          <div className="mt-3.5">
+            <BotaoBoasVindasManual
+              clienteId={c.id}
+              enviadaEm={c.boas_vindas_em}
+              temWhatsapp={Boolean(c.whatsapp)}
+            />
+          </div>
+        </Cartao>
+
+        <Cartao className="mb-4 p-5">
           <p className="mb-2 text-sm text-nevoa">Portal do cliente</p>
           <LinkPortal url={linkPortal(c.portal_token)} whatsapp={c.whatsapp} />
           <p className="mt-2 text-xs text-nevoa">Link fixo: o cliente vê as faturas dele, o PIX e a economia. Já vai junto com a fatura no WhatsApp.</p>
-          <div className="mt-4 border-t border-traco pt-3">
-            <ReenviarBoasVindas clienteId={c.id} enviadaEm={c.boas_vindas_em} />
-          </div>
         </Cartao>
 
         <h2 className="mb-3 font-semibold">Faturas</h2>

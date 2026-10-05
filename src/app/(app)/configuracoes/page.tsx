@@ -7,7 +7,16 @@ import { sair } from "../actions";
 
 export default async function Ajustes() {
   const { supabase, usina, papel, user } = await contexto();
-  const { data: membros } = await supabase.from("usina_membros").select("user_id, email, papel").eq("usina_id", usina.id).order("created_at");
+  const [{ data: membros }, { count: pendentesCount }] = await Promise.all([
+    supabase.from("usina_membros").select("user_id, email, papel").eq("usina_id", usina.id).order("created_at"),
+    supabase
+      .from("clientes")
+      .select("id", { count: "exact", head: true })
+      .eq("usina_id", usina.id)
+      .eq("ativo", true)
+      .is("boas_vindas_em", null)
+      .not("whatsapp", "is", null),
+  ]);
   const cred = papel === "dono" ? await segredos(usina.id).catch(() => null) : null;
   const urlWebhook = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/asaas/webhook/${usina.id}`;
 
@@ -36,6 +45,7 @@ export default async function Ajustes() {
             whatsappOficial={usaWhatsAppOficial()}
             whatsappFaturaConfigurado={whatsappDisponivel(usina.whatsapp_instancia, "fatura")}
             whatsappTextoConfigurado={whatsappDisponivel(usina.whatsapp_instancia, "texto")}
+            pendentesBoasVindasCount={pendentesCount ?? 0}
           />
         </Cartao>
       </section>

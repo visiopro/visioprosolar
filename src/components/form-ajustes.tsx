@@ -8,14 +8,23 @@ import { ImageUp, Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { Copy } from "lucide-react";
 import type { Usina } from "@/lib/usina";
+import { DispararBoasVindasLote } from "./disparar-boas-vindas-lote";
 import { Aviso, Botao, Campo, Cartao } from "./ui";
 
-export function FormUsina({ usina, podeEditar, whatsappOficial, whatsappFaturaConfigurado, whatsappTextoConfigurado }: {
+export function FormUsina({
+  usina,
+  podeEditar,
+  whatsappOficial,
+  whatsappFaturaConfigurado,
+  whatsappTextoConfigurado,
+  pendentesBoasVindasCount,
+}: {
   usina: Usina;
   podeEditar: boolean;
   whatsappOficial: boolean;
   whatsappFaturaConfigurado: boolean;
   whatsappTextoConfigurado: boolean;
+  pendentesBoasVindasCount?: number;
 }) {
   const [estado, acao, enviando] = useActionState<Estado, FormData>(salvarUsina, undefined);
   return (
@@ -84,6 +93,9 @@ export function FormUsina({ usina, podeEditar, whatsappOficial, whatsappFaturaCo
           <textarea name="boas_vindas_texto" rows={10} defaultValue={usina.boas_vindas_texto ?? ""} placeholder={PADRAO} className="campo text-[13px]" />
         </Campo>
       </fieldset>
+      {pendentesBoasVindasCount && pendentesBoasVindasCount > 0 ? (
+        <DispararBoasVindasLote pendentesCount={pendentesBoasVindasCount} />
+      ) : null}
       {estado ? <Aviso tipo={estado.erro ? "erro" : "ok"}>{estado.erro ?? estado.ok}</Aviso> : null}
       {podeEditar ? (
         <Botao disabled={enviando}>{enviando ? "Salvando…" : "Salvar dados"}</Botao>

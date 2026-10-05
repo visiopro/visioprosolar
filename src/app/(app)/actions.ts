@@ -139,7 +139,89 @@ export async function reenviarBoasVindas(clienteId: string): Promise<{ erro?: st
   const { supabase, usina } = await contexto();
   const r = await mandarBoasVindas(supabase, usina, clienteId);
   revalidatePath(`/clientes/${clienteId}`);
-  return r.erro ? { erro: r.erro } : { ok: "Mensagem de boas-vindas enviada." };
+  return r.erro ? { erro: r.erro } : { ok: "Mensagem de boas-vindas enviada com sucesso no WhatsApp." };
+}
+
+export async function enviarBoasVindasEmLote(): Promise<{ erro?: string; ok?: string; total?: number; enviados?: number; falhas?: number }> {
+  const { supabase, usina } = await contexto();
+
+  if (!whatsappDisponivel(usina.whatsapp_instancia, "boas_vindas")) {
+    return { erro: usaWhatsAppOficial() ? "O WhatsApp oficial ou modelo de boas-vindas ainda não está configurado." : "WhatsApp da usina não conectado." };
+  }
+
+  // Busca todos os clientes ativos da usina que ainda não receberam boas-vindas e possuem whatsapp
+  const { data: pendentes, error } = await supabase
+    .from("clientes")
+    .select("id, nome, uc, distribuidora, whatsapp, portal_token, modo_desconto, desconto_valor")
+    .eq("usina_id", usina.id)
+    .eq("ativo", true)
+    .is("boas_vindas_em", null)
+    .not("whatsapp", "is", null);
+
+  if (error) return { erro: "Falha ao consultar clientes pendentes: " + error.message };
+  if (!pendentes || pendentes.length === 0) {
+    return { ok: "Todos os clientes ativos com WhatsApp já receberam a mensagem de boas-vindas!" };
+  }
+
+  let enviados = 0;
+  const falhas: string[] = [];
+  const token = usaWhatsAppOficial() ? null : (await segredos(usina.id)).evolutionToken;
+
+  for (const c of pendentes) {
+    if (!c.whatsapp) continue;
+    const link = linkPortal(c.portal_token);
+    const texto = montarBoasVindas({
+      texto: usina.boas_vindas_texto,
+      cliente: c.nome,
+      usina: usina.nome,
+      uc: c.uc,
+      distribuidora: c.distribuidora,
+      regra: descreverRegra(c.modo_desconto as ModoDesconto, Number(c.desconto_valor)),
+      portal: link,
+    });
+
+    try {
+      await enviarBoasVindas({
+        instancia: usina.whatsapp_instancia,
+        numero: c.whatsapp,
+        texto,
+        usinaNome: usina.nome,
+        uc: c.uc,
+        distribuidora: c.distribuidora,
+        portal: link,
+        token,
+      });
+
+      await supabase.from("clientes").update({ boas_vindas_em: new Date().toISOString() }).eq("id", c.id);
+      await registrarEvento(supabase, usina.id, "boas_vindas_enviadas", c.id);
+      enviados++;
+    } catch (err) {
+      console.error(`[enviarBoasVindasEmLote] Erro ao enviar para ${c.nome} (${c.whatsapp}):`, err);
+      falhas.push(c.nome);
+    }
+
+    // Intervalo de 350ms entre disparos para respeitar os limites de requisições da Meta
+    await new Promise((r) => setTimeout(r, 350));
+  }
+
+  revalidatePath("/clientes");
+  revalidatePath("/configuracoes");
+
+  if (falhas.length > 0) {
+    return {
+      ok: `${enviados} mensagem(ns) de boas-vindas enviada(s). ${falhas.length} falha(s): ${falhas.slice(0, 3).join(", ")}${falhas.length > 3 ? "..." : ""}.`,
+      total: pendentes.length,
+      enviados,
+      falhas: falhas.length,
+    };
+  }
+
+  return {
+    ok: `Todas as ${enviados} mensagens de boas-vindas foram enviadas com sucesso!`,
+    total: pendentes.length,
+    enviados,
+    falhas: 0,
+  };
 }
 
 export async function alternarCliente(id: string, ativo: boolean) {

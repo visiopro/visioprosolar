@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { convidarMembro, removerMembro, salvarCobranca, salvarLogo, salvarUsina, type Estado } from "@/app/(app)/actions";
 import { PADRAO, VARIAVEIS } from "@/lib/boas-vindas";
+import { PADRAO_FATURA, VARIAVEIS_FATURA } from "@/lib/legenda";
 import { useRouter } from "next/navigation";
 import { ImageUp, Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -91,6 +92,16 @@ export function FormUsina({
         </label>
         <Campo rotulo="Texto da mensagem" ajuda={`Em branco, usa o texto padrão. Variáveis: ${VARIAVEIS.map((v) => `{{${v}}}`).join(", ")}.`} className="mt-4">
           <textarea name="boas_vindas_texto" rows={10} defaultValue={usina.boas_vindas_texto ?? ""} placeholder={PADRAO} className="campo text-[13px]" />
+        </Campo>
+      </fieldset>
+
+      <fieldset disabled={!podeEditar} className="rounded-[var(--radius-cartao)] border border-traco p-4 disabled:opacity-70">
+        <legend className="px-1.5 text-sm font-medium">Mensagem da fatura</legend>
+        <p className="text-xs text-nevoa">
+          Texto que vai junto com o PDF no WhatsApp. O código PIX continua indo em mensagem separada, para o cliente copiar com um toque.
+        </p>
+        <Campo rotulo="Texto" ajuda={`Em branco, usa o texto padrão. Variáveis: ${VARIAVEIS_FATURA.map((v) => `{{${v}}}`).join(", ")}.`} className="mt-3">
+          <textarea name="mensagem_fatura_texto" rows={12} defaultValue={usina.mensagem_fatura_texto ?? ""} placeholder={PADRAO_FATURA} className="campo text-[13px]" />
         </Campo>
       </fieldset>
       {pendentesBoasVindasCount && pendentesBoasVindasCount > 0 ? (

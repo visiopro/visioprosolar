@@ -23,6 +23,7 @@ export type Usina = {
   contato_whatsapp: string | null;
   boas_vindas_ativo: boolean;
   boas_vindas_texto: string | null;
+  mensagem_fatura_texto: string | null;
 };
 
 /** URL pública da logo (bucket "logos") */

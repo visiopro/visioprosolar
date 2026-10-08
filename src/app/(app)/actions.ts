@@ -547,6 +547,7 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
       bandeira_padrao: Math.max(0, parseNumeroBR(txt(form, "bandeira_padrao")) ?? 0),
       boas_vindas_ativo: form.get("boas_vindas_ativo") === "on",
       boas_vindas_texto: String(form.get("boas_vindas_texto") ?? "").trim() || null,
+      mensagem_fatura_texto: String(form.get("mensagem_fatura_texto") ?? "").trim() || null,
       contato_whatsapp: (() => {
         const d = soDigitos(txt(form, "contato_whatsapp"));
         return d ? (d.startsWith("55") ? d : `55${d}`) : null;

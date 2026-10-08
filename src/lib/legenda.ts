@@ -25,65 +25,77 @@ export type FaturaLegenda = {
 export const linkPortal = (token: string) =>
   `${(process.env.NEXT_PUBLIC_APP_URL ?? "https://solar.visiopro.app.br").replace(/\/$/, "")}/c/${token}`;
 
-export function legendaWhatsapp(f: FaturaLegenda): string {
-  const usinaNome = f.snapshot.usina.nome;
-  const clienteNome = f.snapshot.cliente.nome;
-  const mesAno = mesRef(f.referencia);
+/** Texto padrão da mensagem que acompanha o PDF da fatura */
+export const PADRAO_FATURA = `*{{usina}}* ☀️
+_Fatura de {{mes}}_
 
-  const consumo = Number(f.consumo_kwh ?? f.compensada_kwh ?? 0);
+Olá, {{cliente}}! Sua fatura já está disponível.
+
+💚 *{{valor}}*
+📅 Vence em {{vencimento}}
+
+Você economizou *{{economia}}* este mês.
+_Sem a usina, sua conta seria {{sem_usina}}._
+
+*Pague pelo PIX*: o código vai na próxima mensagem, é só copiar e colar no app do banco.
+
+📱 Suas faturas e sua economia: {{portal}}
+
+Qualquer dúvida, é só responder aqui. 💚`;
+
+export const VARIAVEIS_FATURA = [
+  "usina",
+  "cliente",
+  "mes",
+  "valor",
+  "vencimento",
+  "economia",
+  "sem_usina",
+  "consumo",
+  "energia",
+  "bandeira",
+  "iluminacao",
+  "portal",
+  "link_pagamento",
+] as const;
+
+export function legendaWhatsapp(f: FaturaLegenda, texto?: string | null): string {
   const bandeiraCentavos = Number(f.bandeira_centavos ?? 0);
   const iluminacaoCentavos = Number(f.iluminacao_centavos ?? 0);
   const semUsinaCentavos = Number(f.sem_usina_centavos ?? 0);
-  const valorEnergiaCentavos = Math.max(0, semUsinaCentavos - bandeiraCentavos - iluminacaoCentavos);
-  const economiaCentavos = Number(f.economia_centavos ?? 0);
-  const totalCentavos = Number(f.total_centavos ?? 0);
+  const paga = f.status === "paga";
 
-  const bandeiraTexto = bandeiraCentavos > 0 ? brl(bandeiraCentavos) : "Verde";
+  const valores: Record<string, string> = {
+    usina: f.snapshot.usina.nome,
+    cliente: f.snapshot.cliente.nome.split(" ")[0],
+    mes: mesRef(f.referencia),
+    valor: brl(Number(f.total_centavos ?? 0)),
+    vencimento: data(f.vencimento),
+    economia: brl(Number(f.economia_centavos ?? 0)),
+    sem_usina: brl(semUsinaCentavos),
+    consumo: `${numero(Number(f.consumo_kwh ?? f.compensada_kwh ?? 0))} kWh`,
+    energia: brl(Math.max(0, semUsinaCentavos - bandeiraCentavos - iluminacaoCentavos)),
+    bandeira: bandeiraCentavos > 0 ? brl(bandeiraCentavos) : "Verde",
+    iluminacao: brl(iluminacaoCentavos),
+    portal: f.portal_token ? linkPortal(f.portal_token) : "",
+    link_pagamento: f.cobranca_link ?? "",
+  };
 
-  const linhas = [
-    `☀️ ${usinaNome.toUpperCase()}`,
-    `Olá, ${clienteNome}! 👋`,
-    `Sua fatura de energia referente a ${mesAno} já está disponível.`,
-    ``,
-    `📊 RESUMO DA SUA FATURA`,
-    `⚡ Consumo: ${numero(consumo)} kWh`,
-    `🏷️ Bandeira tarifária: ${bandeiraTexto}`,
-    `💰 Valor da energia: ${brl(valorEnergiaCentavos)}`,
-    `💡 Iluminação pública: ${brl(iluminacaoCentavos)}`,
-    `💵 Valor total sem desconto: ${brl(semUsinaCentavos)}`,
-    `📉 Economia obtida: ${brl(economiaCentavos)}`,
-    `💚 VALOR A PAGAR: ${brl(totalCentavos)}`,
-    `📅 Vencimento: ${data(f.vencimento)}`,
-  ];
-
-  if (f.status === "paga") {
-    linhas.push(``, `✅ Fatura paga${f.paga_em ? ` em ${data(f.paga_em)}` : ""}.`);
-  } else if (f.pix_copia_cola) {
-    linhas.push(
-      ``,
-      `💳 PAGAMENTO VIA PIX`,
-      `Código PIX Copia e Cola:`,
-      f.pix_copia_cola
-    );
-  }
-
-  if (f.cobranca_link && f.status !== "paga") {
-    linhas.push(``, `🔗 Link para pagamento:`, f.cobranca_link);
-  }
-
-  if (f.portal_token) {
-    linhas.push(
-      ``,
-      `📱 Acompanhe sua fatura e sua economia:`,
-      linkPortal(f.portal_token)
-    );
-  }
-
-  linhas.push(
-    ``,
-    `Obrigado pela confiança na ${usinaNome}! 💚`,
-    `Qualquer dúvida, é só responder esta mensagem. Estamos à disposição.`
+  const base = (texto?.trim() || PADRAO_FATURA).replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (todo, chave: string) =>
+    chave in valores ? valores[chave] : todo,
   );
 
-  return linhas.join("\n");
+  // tira as linhas que ficaram vazias (sem portal, sem link de pagamento)
+  const linhas = base
+    .split("\n")
+    .filter((l) => !/^[^\p{L}\p{N}]*$/u.test(l) || l.trim() === "")
+    .join("\n");
+
+  if (paga) {
+    return [`*${valores.usina}* ☀️`, `_Fatura de ${valores.mes}_`, ``, `✅ Pagamento confirmado${f.paga_em ? ` em ${data(f.paga_em)}` : ""}.`, `Valor: ${valores.valor}`, ``, valores.portal ? `📱 Suas faturas: ${valores.portal}` : ""]
+      .filter((l) => l !== "")
+      .join("\n");
+  }
+
+  return linhas.trimEnd();
 }

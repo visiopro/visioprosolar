@@ -72,7 +72,7 @@ export async function enviarFaturaPorWhatsapp(supabase: SupabaseClient, usina: U
     await enviarDocumento({
       instancia: usina.whatsapp_instancia,
       numero: cliente.whatsapp,
-      legenda: legendaWhatsapp({ ...r.fatura, portal_token: cliente.portal_token }),
+      legenda: legendaWhatsapp({ ...r.fatura, portal_token: cliente.portal_token }, usina.mensagem_fatura_texto),
       pdf: r.pdf,
       nomeArquivo: r.nome,
       usinaNome: usina.nome,

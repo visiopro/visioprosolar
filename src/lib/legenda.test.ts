@@ -30,49 +30,38 @@ const baseFatura = {
   },
 };
 
-test("formata resumo completo da fatura com bandeira tarifária", () => {
+test("texto padrão destaca valor, vencimento e economia", () => {
   const msg = legendaWhatsapp(baseFatura);
 
-  assert.match(msg, /☀️ LEÃO USINA SOLAR/);
-  assert.match(msg, /Olá, Wellington Luiz de Andrade! 👋/);
-  assert.match(msg, /Sua fatura de energia referente a 09\/2026 já está disponível\./);
-  assert.match(msg, /📊 RESUMO DA SUA FATURA/);
-  assert.match(msg, /⚡ Consumo: 149 kWh/);
-  assert.match(msg, /🏷️ Bandeira tarifária: R\$\s*3,79/);
-  assert.match(msg, /💰 Valor da energia: R\$\s*177,12/);
-  assert.match(msg, /💡 Iluminação pública: R\$\s*25,00/);
-  assert.match(msg, /💵 Valor total sem desconto: R\$\s*205,91/);
-  assert.match(msg, /📉 Economia obtida: R\$\s*41,18/);
-  assert.match(msg, /💚 VALOR A PAGAR: R\$\s*164,73/);
-  assert.match(msg, /📅 Vencimento: 10\/10\/2026/);
-  assert.match(msg, /💳 PAGAMENTO VIA PIX/);
-  assert.match(msg, /Código PIX Copia e Cola:/);
-  assert.match(msg, /00020126580014br\.gov\.bcb\.pix\.\.\./);
-  assert.match(msg, /📱 Acompanhe sua fatura e sua economia:/);
+  assert.match(msg, /\*Leão Usina Solar\* ☀️/);
+  assert.match(msg, /_Fatura de 09\/2026_/);
+  assert.match(msg, /Olá, Wellington! Sua fatura já está disponível\./);
+  assert.match(msg, /💚 \*R\$\s*164,73\*/);
+  assert.match(msg, /📅 Vence em 10\/10\/2026/);
+  assert.match(msg, /Você economizou \*R\$\s*41,18\* este mês\./);
+  assert.match(msg, /conta seria R\$\s*205,91/);
   assert.match(msg, /\/c\/token-abc-123/);
-  assert.match(msg, /Obrigado pela confiança na Leão Usina Solar! 💚/);
-  assert.match(msg, /Qualquer dúvida, é só responder esta mensagem\. Estamos à disposição\./);
+  // o código PIX vai em mensagem separada, não na legenda
+  assert.doesNotMatch(msg, /00020126580014/);
 });
 
-test("bandeira verde quando não há acréscimo", () => {
-  const msg = legendaWhatsapp({
-    ...baseFatura,
-    bandeira_centavos: 0,
-    iluminacao_centavos: 0,
-    sem_usina_centavos: 10000,
-  });
+test("texto próprio da usina substitui as variáveis", () => {
+  const msg = legendaWhatsapp(baseFatura, "Oi {{cliente}}, {{usina}} informa: {{valor}} até {{vencimento}}. Consumo {{consumo}}.");
 
-  assert.match(msg, /🏷️ Bandeira tarifária: Verde/);
-  assert.match(msg, /💰 Valor da energia: R\$\s*100,00/);
+  assert.match(msg, /Oi Wellington, Leão Usina Solar informa: R\$\s*164,73 até 10\/10\/2026\./);
+  assert.match(msg, /Consumo 149 kWh/);
 });
 
-test("fatura já paga exibe aviso de paga", () => {
-  const msg = legendaWhatsapp({
-    ...baseFatura,
-    status: "paga",
-    paga_em: "2026-10-05T12:00:00Z",
-  });
+test("variáveis de bandeira e iluminação ficam disponíveis", () => {
+  const msg = legendaWhatsapp({ ...baseFatura, bandeira_centavos: 0, iluminacao_centavos: 0, sem_usina_centavos: 10000 }, "Bandeira {{bandeira}} · energia {{energia}}");
 
-  assert.match(msg, /✅ Fatura paga em 05\/10\/2026\./);
-  assert.doesNotMatch(msg, /💳 PAGAMENTO VIA PIX/);
+  assert.match(msg, /Bandeira Verde/);
+  assert.match(msg, /energia R\$\s*100,00/);
+});
+
+test("fatura já paga manda confirmação, sem PIX", () => {
+  const msg = legendaWhatsapp({ ...baseFatura, status: "paga", paga_em: "2026-10-05T12:00:00Z" });
+
+  assert.match(msg, /✅ Pagamento confirmado em 05\/10\/2026\./);
+  assert.doesNotMatch(msg, /Pague pelo PIX/);
 });

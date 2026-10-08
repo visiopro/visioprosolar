@@ -214,7 +214,7 @@ export async function enviarTexto(p: { instancia: string | null; numero: string;
   const url = variavel("EVOLUTION_API_URL").replace(/\/+$/, "");
   const key = p.token || variavel("EVOLUTION_API_KEY");
   if (!p.instancia || !url || !key) throw new Error("WhatsApp não configurado: falta a instância ou a chave da Evolution.");
-  const texto = p.texto.startsWith(`*${p.usinaNome}*\n`) ? p.texto : `*${p.usinaNome}*\n${p.texto}`;
+  const texto = p.texto.startsWith("000201") || p.texto.startsWith(`*${p.usinaNome}*\n`) ? p.texto : `*${p.usinaNome}*\n${p.texto}`;
   const res = await fetch(`${url}/message/sendText/${encodeURIComponent(p.instancia)}`, {
     method: "POST",
     headers: { "content-type": "application/json", apikey: key },

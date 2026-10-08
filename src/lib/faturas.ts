@@ -52,23 +52,8 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
   return { fatura: f, pdf, nome };
 }
 
-export function legendaWhatsapp(f: { snapshot: DadosFaturaPdf["snapshot"]; referencia: string; total_centavos: number; vencimento: string; economia_centavos: number; cobranca_link?: string | null; portal_token?: string | null }) {
-  const primeiroNome = f.snapshot.cliente.nome.split(" ")[0];
-  return [
-    `*${f.snapshot.usina.nome}*`,
-    `Olá, ${primeiroNome}! Sua fatura de energia solar de ${mesExtenso(f.referencia)} está disponível.`,
-    ``,
-    `Valor: ${brl(Number(f.total_centavos))}`,
-    `Vencimento: ${data(f.vencimento)}`,
-    `Economia neste mês: ${brl(Number(f.economia_centavos))}`,
-    ``,
-    `O código PIX copia e cola também está no PDF.`,
-    ...(f.cobranca_link ? [``, `Página de pagamento: ${f.cobranca_link}`] : []),
-    ...(f.portal_token ? [``, `Suas faturas e sua economia: ${linkPortal(f.portal_token)}`] : []),
-  ].join("\n");
-}
-
-export const linkPortal = (token: string) => `${(process.env.NEXT_PUBLIC_APP_URL ?? "https://solar.visiopro.app.br").replace(/\/$/, "")}/c/${token}`;
+import { legendaWhatsapp, linkPortal, type FaturaLegenda } from "./legenda";
+export { legendaWhatsapp, linkPortal, type FaturaLegenda };
 
 /** Envia o PDF da fatura, o PIX copia e cola e o link de pagamento no WhatsApp do cliente */
 export async function enviarFaturaPorWhatsapp(supabase: SupabaseClient, usina: Usina, faturaId: string): Promise<{ erro?: string }> {

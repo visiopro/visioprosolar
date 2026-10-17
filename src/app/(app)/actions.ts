@@ -345,9 +345,12 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
         conferida_em: new Date().toISOString(),
       })
       .eq("id", d.contaId)
+      .eq("usina_id", usina.id)
+      .neq("status", "faturada")
+      .or(`leitura_lock_ate.is.null,leitura_lock_ate.lt.${new Date().toISOString()}`)
       .select("id")
       .maybeSingle();
-    if (!conta) return { erro: "A conta enviada não foi encontrada. Envie a foto novamente." };
+    if (!conta) return { erro: "A conta não está disponível: pode estar em leitura, já ter sido faturada ou não pertencer à sua usina." };
 
     const { data: fatura, error } = await supabase
       .from("faturas")

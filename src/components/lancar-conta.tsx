@@ -12,7 +12,7 @@ import { conferirVariacao, type HistoricoCliente } from "@/lib/conferencia";
 import { Aviso, Botao, Campo, Cartao, cx } from "./ui";
 
 type Cliente = { id: string; nome: string; uc: string; whatsapp: string | null; modo_desconto: ModoDesconto; desconto_valor: number; cip_modo: "da_conta" | "percentual" | "fixo" | "tabela"; cip_valor: number; cip_tabela_id: string | null; cip_classe: ClasseCip | null };
-type Resposta = { contaId: string; leitura: LeituraConta | null; aviso: string; clienteId: string | null; arquivoUrl: string | null; arquivoTipo: string };
+export type Resposta = { contaId: string; leitura: LeituraConta | null; aviso: string; clienteId: string | null; arquivoUrl: string | null; arquivoTipo: string };
 
 const LIMITE_PDF = 4 * 1024 * 1024; // limite de corpo da Vercel ~4,5 MB
 
@@ -35,10 +35,10 @@ async function prepararArquivo(f: File): Promise<File> {
 
 const txt = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
 
-export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | null; vencimentoPadrao: string; whatsappConfigurado: boolean; bandeiraPadrao: number; faixasCip: (FaixaCip & { tabela_id: string })[]; historico: HistoricoCliente[] }) {
-  const [etapa, setEtapa] = useState<"enviar" | "lendo" | "conferir" | "emitida">("enviar");
+export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | null; vencimentoPadrao: string; whatsappConfigurado: boolean; bandeiraPadrao: number; faixasCip: (FaixaCip & { tabela_id: string })[]; historico: HistoricoCliente[]; contaInicial?: Resposta | null }) {
+  const [etapa, setEtapa] = useState<"enviar" | "lendo" | "conferir" | "emitida">(p.contaInicial ? "conferir" : "enviar");
   const [erro, setErro] = useState<string | null>(null);
-  const [resp, setResp] = useState<Resposta | null>(null);
+  const [resp, setResp] = useState<Resposta | null>(p.contaInicial ?? null);
   const [previa, setPrevia] = useState<string | null>(null);
   const [emitida, setEmitida] = useState<string | null>(null);
   const [envio, setEnvio] = useState<{ erro?: string; ok?: string } | null>(null);
@@ -46,20 +46,16 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
   const camera = useRef<HTMLInputElement>(null);
   const arquivo = useRef<HTMLInputElement>(null);
 
+  const inicial = p.contaInicial?.leitura;
   const [f, setF] = useState({
-    clienteId: p.clienteInicial ?? "",
-    uc: "",
-    referencia: "",
-    consumoKwh: "",
-    compensadaKwh: "",
-    tarifa: "",
-    bandeira: "",
-    iluminacao: "",
-    valorConta: "",
-    semUsinaAjustado: "",
-    vencimentoConta: "",
-    vencimento: p.vencimentoPadrao,
-    confirmado: false,
+    clienteId: p.contaInicial?.clienteId ?? p.clienteInicial ?? "",
+    uc: inicial?.uc ?? "", referencia: inicial?.referencia ?? "",
+    consumoKwh: txt(inicial?.consumo_kwh), compensadaKwh: txt(inicial?.compensada_kwh),
+    tarifa: txt(inicial?.tarifa),
+    bandeira: inicial?.bandeira ? txt(inicial.bandeira) : inicial?.consumo_kwh && p.bandeiraPadrao ? txt(Math.round(inicial.consumo_kwh * p.bandeiraPadrao * 100) / 100) : "",
+    iluminacao: txt(inicial?.iluminacao_publica), valorConta: txt(inicial?.valor_conta),
+    semUsinaAjustado: "", vencimentoConta: inicial?.vencimento_conta ?? "",
+    vencimento: p.vencimentoPadrao, confirmado: false,
   });
   const [avisoEmissao, setAvisoEmissao] = useState<string | null>(null);
   const [enviadaAuto, setEnviadaAuto] = useState(false);
@@ -277,6 +273,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
       <div className="lg:sticky lg:top-6 lg:self-start">
+        {resp?.arquivoUrl ? <a href={resp.arquivoUrl} target="_blank" rel="noreferrer" className="mb-3 block text-sm text-sol underline">Abrir original em outra aba (inclusive PDF com senha)</a> : null}
         <Cartao className="overflow-hidden">
           {previa ? (
             <a href={previa} target="_blank" rel="noreferrer" title="Abrir em tamanho real">

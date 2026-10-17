@@ -33,6 +33,16 @@ export default async function Ajustes() {
       </section>
 
       <section>
+        <h2 className="mb-3 font-semibold">Recebimento de contas</h2>
+        <Cartao className="space-y-3 p-5">
+          <p className="text-sm text-nevoa">Importe os PDFs enviados pela Coelba ao Gmail da usina.</p>
+          <div className="flex flex-wrap gap-4">
+            {papel === "dono" ? <a href="/integracoes/gmail" className="text-sol hover:underline">Configurar Gmail</a> : null}
+            <a href="/contas/recebidas" className="text-sol hover:underline">Contas recebidas</a>
+          </div>
+        </Cartao>
+      </section>
+      <section>
         <h2 className="mb-3 font-semibold">Dados da usina</h2>
         <Cartao className="mb-4 p-5 sm:p-6">
           <p className="mb-3 text-sm text-nevoa">Logo</p>

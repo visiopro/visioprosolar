@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Camera, FileText, LayoutGrid, Settings, Users, Wallet } from "lucide-react";
+import { Camera, Mail, FileText, LayoutGrid, Settings, Users, Wallet } from "lucide-react";
 import { cx } from "./ui";
 
 const itens = [
@@ -10,6 +10,7 @@ const itens = [
   { href: "/clientes", rotulo: "Clientes", Icone: Users },
   { href: "/faturas", rotulo: "Faturas", Icone: FileText },
   { href: "/financeiro", rotulo: "Financeiro", Icone: Wallet },
+  { href: "/contas/recebidas", rotulo: "Contas recebidas", Icone: Mail },
   { href: "/configuracoes", rotulo: "Ajustes", Icone: Settings },
 ];
 

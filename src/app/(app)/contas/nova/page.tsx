@@ -4,14 +4,21 @@ import type { HistoricoCliente } from "@/lib/conferencia";
 // emitir pode incluir cobrança + PDF + WhatsApp: dá mais tempo à função
 export const maxDuration = 60;
 import { hojeBR, somarDias } from "@/lib/format";
-import { LancarConta } from "@/components/lancar-conta";
+import { LancarConta, type Resposta } from "@/components/lancar-conta";
 import { BotaoLink, Cabecalho, Vazio } from "@/components/ui";
 import type { ModoDesconto } from "@/lib/calculo";
 import { whatsappDisponivel } from "@/lib/whatsapp";
 
-export default async function NovaConta({ searchParams }: { searchParams: Promise<{ cliente?: string }> }) {
+export default async function NovaConta({ searchParams }: { searchParams: Promise<{ cliente?: string; conta?: string }> }) {
   const { supabase, usina } = await contexto();
-  const { cliente } = await searchParams;
+  const { cliente, conta: contaId } = await searchParams;
+  let contaInicial: Resposta | null = null;
+  if (contaId) {
+    const {data: conta, error} = await supabase.from("contas_energia").select("id,arquivo_path,arquivo_tipo,leitura_ia,cliente_id,status,importacao_erro,leitura_lock_ate").eq("id",contaId).eq("usina_id",usina.id).eq("origem","gmail").maybeSingle();
+    if (error || !conta || conta.status === "faturada" || (conta.leitura_lock_ate && Date.parse(conta.leitura_lock_ate)>Date.now())) return <Vazio titulo="Conta indisponível" texto="A conta não foi encontrada, já foi faturada ou está sendo lida. Atualize a lista e tente novamente." acao={<BotaoLink href="/contas/recebidas">Voltar às contas</BotaoLink>}/>;
+    const {data: url} = await supabase.storage.from("contas").createSignedUrl(conta.arquivo_path,3600);
+    contaInicial={contaId:conta.id,leitura:conta.leitura_ia,clienteId:conta.cliente_id,arquivoUrl:url?.signedUrl??null,arquivoTipo:conta.arquivo_tipo,aviso:conta.importacao_erro??(conta.leitura_ia?"Confira a leitura com o PDF original antes de emitir.":"Conta recebida. Preencha os campos olhando o PDF ou use Ler com IA na lista.")};
+  }
   const { data: clientes } = await supabase
     .from("clientes")
     .select("id, nome, uc, whatsapp, modo_desconto, desconto_valor, cip_modo, cip_valor, cip_tabela_id, cip_classe")
@@ -61,8 +68,10 @@ export default async function NovaConta({ searchParams }: { searchParams: Promis
 
   return (
     <div className="max-w-4xl">
-      <Cabecalho titulo="Lançar conta" sub="Fotografe a conta da distribuidora. A leitura preenche os campos para você conferir." />
+      <Cabecalho titulo="Lançar conta" sub="Envie uma conta ou abra um PDF já importado para conferir." acao={<BotaoLink href="/contas/recebidas" variante="secundario">Recebidas</BotaoLink>} />
       <LancarConta
+        key={contaId ?? "nova"}
+        contaInicial={contaInicial}
         clientes={clientes.map((c) => ({ ...c, modo_desconto: c.modo_desconto as ModoDesconto, desconto_valor: Number(c.desconto_valor), cip_modo: c.cip_modo as "da_conta", cip_valor: Number(c.cip_valor ?? 0), cip_tabela_id: c.cip_tabela_id, cip_classe: c.cip_classe as "B1" | null }))}
         clienteInicial={cliente ?? null}
         vencimentoPadrao={somarDias(hojeBR(), usina.dias_vencimento)}

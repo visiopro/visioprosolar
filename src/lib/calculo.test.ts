@@ -46,3 +46,16 @@ test("pix tem CRC válido", () => {
   const p = gerarPix({ chave: "12345678000199", favorecido: "Usina Sol", cidade: "Vitória da Conquista", centavos: 27725 })!;
   assert.match(p, /^000201.*6304[0-9A-F]{4}$/);
 });
+
+import { normalizarChavePix } from "./pix.ts";
+test("normaliza chave PIX para o formato do DICT", () => {
+  assert.equal(normalizarChavePix("11.222.333/0001-81")?.chave, "11222333000181");
+  assert.equal(normalizarChavePix("529.982.247-25")?.chave, "52998224725");
+  assert.equal(normalizarChavePix("(77) 99812-3456")?.chave, "+5577998123456");
+  assert.equal(normalizarChavePix("+55 77 99812-3456")?.chave, "+5577998123456");
+  assert.equal(normalizarChavePix(" Usina@Email.com ")?.chave, "usina@email.com");
+  assert.equal(normalizarChavePix("123E4567-E89B-12D3-A456-426614174000")?.chave, "123e4567-e89b-12d3-a456-426614174000");
+  assert.equal(normalizarChavePix("abc"), null);
+  const p = gerarPix({ chave: "(77) 99812-3456", favorecido: "Usina", cidade: "Conquista", centavos: 100 })!;
+  assert.ok(p.includes("0114+5577998123456"));
+});

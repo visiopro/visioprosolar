@@ -49,7 +49,7 @@ export function FormUsina({
         <Campo rotulo="WhatsApp de contato da usina" ajuda="Com DDD. É o número que o cliente aciona no portal quando precisa falar com gente.">
           <input name="contato_whatsapp" defaultValue={usina.contato_whatsapp?.replace(/^55/, "") ?? ""} inputMode="tel" className="campo" />
         </Campo>
-        <Campo rotulo="Chave PIX" className="sm:col-span-2">
+        <Campo rotulo="Chave PIX" className="sm:col-span-2" ajuda="CPF, CNPJ, celular com DDD, e-mail ou chave aleatória — a mesma cadastrada no banco. O app ajusta o formato sozinho.">
           <input name="pix_chave" defaultValue={usina.pix_chave ?? ""} className="campo" />
         </Campo>
         <Campo rotulo="Favorecido do PIX" ajuda="Como aparece no banco. Até 25 letras.">

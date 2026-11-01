@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { contexto, registrarEvento, type Usina } from "@/lib/usina";
 import { calcularFatura, descreverRegra, type ModoDesconto } from "@/lib/calculo";
-import { gerarPix } from "@/lib/pix";
+import { gerarPix, normalizarChavePix } from "@/lib/pix";
 import { parseNumeroBR, soDigitos } from "@/lib/format";
 import { enviarFaturaPorWhatsapp, linkPortal } from "@/lib/faturas";
 import { montarBoasVindas } from "@/lib/boas-vindas";
@@ -525,7 +525,12 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
   const { supabase, usina, papel } = await contexto();
   if (papel !== "dono") return { erro: "Só o dono da usina altera esses dados." };
   const nome = txt(form, "nome");
-  const pixChave = txt(form, "pix_chave");
+  const pixDigitada = txt(form, "pix_chave");
+  const pixNormal = pixDigitada ? normalizarChavePix(pixDigitada) : null;
+  if (pixDigitada && !pixNormal) {
+    return { erro: "Chave PIX não reconhecida. Use CPF ou CNPJ (só números ou com pontuação), celular com DDD, e-mail ou chave aleatória, exatamente como está cadastrada no banco." };
+  }
+  const pixChave = pixNormal?.chave ?? "";
   const favorecido = txt(form, "pix_favorecido");
   const cidade = txt(form, "pix_cidade");
   const dias = Number(txt(form, "dias_vencimento"));
@@ -558,8 +563,32 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
     })
     .eq("id", usina.id);
   if (error) return { erro: "Não foi possível salvar." };
+
+  // Faturas pendentes com PIX próprio (sem cobrança no Asaas/Mercado Pago) passam a usar a chave nova
+  let regeradas = 0;
+  const pixMudou = pixChave !== (usina.pix_chave ?? "") || favorecido !== (usina.pix_favorecido ?? "") || cidade !== (usina.pix_cidade ?? "");
+  if (pixMudou || pixChave) {
+    const { data: pendentes } = await supabase
+      .from("faturas")
+      .select("id, referencia, total_centavos, pix_copia_cola, snapshot")
+      .eq("usina_id", usina.id)
+      .eq("status", "pendente")
+      .is("cobranca_id", null);
+    for (const f of pendentes ?? []) {
+      const uc = String((f.snapshot as { cliente?: { uc?: string } })?.cliente?.uc ?? "");
+      const ref = String(f.referencia).slice(0, 7).replace("-", "");
+      const novo = gerarPix({ chave: pixChave, favorecido, cidade, centavos: Number(f.total_centavos), txid: `SOL${ref}${uc.slice(-8)}` });
+      if (novo !== f.pix_copia_cola) {
+        await supabase.from("faturas").update({ pix_copia_cola: novo }).eq("id", f.id);
+        regeradas++;
+      }
+    }
+  }
+
   revalidatePath("/", "layout");
-  return { ok: "Dados da usina salvos." };
+  const aviso = pixNormal && pixNormal.chave !== pixDigitada ? ` Chave PIX ajustada para o formato do banco: ${pixNormal.chave}.` : "";
+  const reg = regeradas ? ` PIX atualizado em ${regeradas} fatura(s) pendente(s).` : "";
+  return { ok: `Dados da usina salvos.${aviso}${reg}` };
 }
 
 export async function salvarLogo(caminho: string | null): Promise<{ erro?: string }> {

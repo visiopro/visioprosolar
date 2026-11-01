@@ -35,6 +35,14 @@ async function prepararArquivo(f: File): Promise<File> {
 
 const txt = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
 
+/** Bandeira inicial do formulário: a da conta; verde = 0; sem informação = tarifa padrão da usina */
+function bandeiraInicial(l: LeituraConta | null | undefined, padrao: number) {
+  if (!l) return "";
+  if (l.bandeira) return txt(l.bandeira);
+  if (l.bandeira_vigente === "verde") return "0";
+  return l.consumo_kwh && padrao ? txt(Math.round(l.consumo_kwh * padrao * 100) / 100) : "";
+}
+
 export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | null; vencimentoPadrao: string; whatsappConfigurado: boolean; bandeiraPadrao: number; faixasCip: (FaixaCip & { tabela_id: string })[]; historico: HistoricoCliente[]; contaInicial?: Resposta | null }) {
   const [etapa, setEtapa] = useState<"enviar" | "lendo" | "conferir" | "emitida">(p.contaInicial ? "conferir" : "enviar");
   const [erro, setErro] = useState<string | null>(null);
@@ -52,7 +60,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     uc: inicial?.uc ?? "", referencia: inicial?.referencia ?? "",
     consumoKwh: txt(inicial?.consumo_kwh), compensadaKwh: txt(inicial?.compensada_kwh),
     tarifa: txt(inicial?.tarifa),
-    bandeira: inicial?.bandeira ? txt(inicial.bandeira) : inicial?.consumo_kwh && p.bandeiraPadrao ? txt(Math.round(inicial.consumo_kwh * p.bandeiraPadrao * 100) / 100) : "",
+    bandeira: bandeiraInicial(inicial, p.bandeiraPadrao),
     iluminacao: txt(inicial?.iluminacao_publica), valorConta: txt(inicial?.valor_conta),
     semUsinaAjustado: "", vencimentoConta: inicial?.vencimento_conta ?? "",
     vencimento: p.vencimentoPadrao, confirmado: false,
@@ -148,8 +156,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
         consumoKwh: txt(l?.consumo_kwh),
         compensadaKwh: txt(l?.compensada_kwh),
         tarifa: txt(l?.tarifa),
-        // conta sem linha de bandeira: usa a tarifa padrão da usina sobre o consumo real
-        bandeira: l?.bandeira ? txt(l.bandeira) : l?.consumo_kwh && p.bandeiraPadrao ? txt(Math.round(l.consumo_kwh * p.bandeiraPadrao * 100) / 100) : "",
+        bandeira: bandeiraInicial(l, p.bandeiraPadrao),
         iluminacao: txt(l?.iluminacao_publica),
         valorConta: txt(l?.valor_conta),
         semUsinaAjustado: "",
@@ -373,10 +380,13 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
               </Campo>
             ) : null}
           </div>
-          {contaCheia && !leitura?.bandeira && parseNumeroBR(f.bandeira) ? (
+          {contaCheia && leitura?.bandeira_vigente === "verde" && !leitura?.bandeira && !parseNumeroBR(f.bandeira) ? (
+            <p className="text-xs text-nevoa">Bandeira verde no mês desta conta: sem acréscimo de bandeira.</p>
+          ) : null}
+          {contaCheia && !leitura?.bandeira && leitura?.bandeira_vigente !== "verde" && parseNumeroBR(f.bandeira) ? (
             <p className="text-xs text-nevoa">Bandeira estimada pela tarifa padrão da usina, porque a conta não trouxe essa linha.</p>
           ) : null}
-          {contaCheia && !leitura?.bandeira && !parseNumeroBR(f.bandeira) && !p.bandeiraPadrao ? (
+          {contaCheia && !leitura?.bandeira && !leitura?.bandeira_vigente && !parseNumeroBR(f.bandeira) && !p.bandeiraPadrao ? (
             <p className="text-xs text-alerta">A conta não tem linha de bandeira. Cadastre a tarifa da bandeira em Ajustes ou informe o valor aqui.</p>
           ) : null}
           {alertas.length ? (

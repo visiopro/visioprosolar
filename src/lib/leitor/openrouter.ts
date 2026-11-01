@@ -14,15 +14,20 @@ export class LeitorOpenRouter implements LeitorDeConta {
   }
 
   async ler({ bytes, tipo }: { bytes: ArrayBuffer; tipo: string }) {
+    const isPdf = tipo === "application/pdf";
+    // PDF da Coelba costuma vir com senha: a IA não consegue abrir
+    if (isPdf && Buffer.from(bytes).includes("/Encrypt")) {
+      throw new Error("PDF protegido por senha. Envie um print da conta ou o PDF desbloqueado.");
+    }
+
     const dataUrl = `data:${tipo};base64,${Buffer.from(bytes).toString("base64")}`;
 
-    const isPdf = tipo === "application/pdf";
     const anexo = isPdf
       ? { type: "file" as const, file: { filename: "conta.pdf", file_data: dataUrl } }
       : { type: "image_url" as const, image_url: { url: dataUrl } };
 
     // Lista com o modelo principal e fallbacks caso o provedor primário esteja temporariamente instável
-    const modelos = Array.from(new Set([this.modelo, "anthropic/claude-sonnet-4-5", "google/gemini-2.5-flash"])).filter(Boolean);
+    const modelos = Array.from(new Set([this.modelo, "anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash"])).filter(Boolean);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: Record<string, any> = {

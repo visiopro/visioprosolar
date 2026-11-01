@@ -1,6 +1,7 @@
 import 'server-only';
 import {supabaseAdmin} from '@/lib/supabase/admin';
 import {obterLeitor} from '@/lib/leitor';
+import {desbloquearPdf,senhasDaUsina} from '@/lib/pdf-senha';
 import {gmail,tokenGoogle,ErroGoogle} from './api';
 import {decifrar,consultaGmail,anexosPdf,hash,ehPdf,pdfProtegido,type Parte} from './seguranca';
 
@@ -43,6 +44,7 @@ export async function sincronizar(usinaId:string) {
     }
     const partes=anexosPdf(m.payload);
     if(partes.length>30) throw new Error('Muitos anexos. Importe esta mensagem manualmente.');
+    let senhas:string[]|undefined;
     for(const p of partes) {
      if(Date.now()-inicio>55000) throw new Error('A mensagem será retomada na próxima sincronização.');
      if((p.body?.size??0)>MAX_PDF) throw new Error('PDF acima de 10 MB. Importe uma versão menor manualmente.');
@@ -53,8 +55,11 @@ export async function sincronizar(usinaId:string) {
      const existe=await db.from('contas_energia').select('id').eq('usina_id',usinaId).eq('origem','gmail').eq('arquivo_sha256',digest).maybeSingle();conferirErro(existe.error);
      if(existe.data) continue;
      const path=`${usinaId}/gmail/${digest}.pdf`;
-     const up=await db.storage.from('contas').upload(path,bytes,{contentType:'application/pdf',upsert:true});conferirErro(up.error);
-     const protegido=pdfProtegido(bytes);
+     // PDF com senha: tenta abrir com CPF/CNPJ da usina e dos clientes e guarda já desbloqueado
+     let arquivo:Uint8Array=bytes;
+     if(pdfProtegido(bytes)) {try{arquivo=(await desbloquearPdf(bytes,senhas??=await senhasDaUsina(db,usinaId)))??bytes;}catch{arquivo=bytes;}}
+     const up=await db.storage.from('contas').upload(path,arquivo,{contentType:'application/pdf',upsert:true});conferirErro(up.error);
+     const protegido=pdfProtegido(arquivo);
      const ins=await db.from('contas_energia').insert({usina_id:usinaId,arquivo_path:path,arquivo_tipo:'application/pdf',origem:'gmail',arquivo_sha256:digest,nome_arquivo:(p.filename??'conta.pdf').slice(0,180),importacao_status:protegido?'protegida':'recebida',importacao_erro:protegido?'PDF protegido por senha. Abra o original com a senha do titular e confira manualmente, ou envie uma cópia desbloqueada em Lançar conta.':null});
      if(ins.error?.code!=='23505') {conferirErro(ins.error);importadas++;}
     }
@@ -89,7 +94,11 @@ export async function lerImportada(usinaId:string,contaId:string) {
  try {
   const arq=await db.storage.from('contas').download(conta.arquivo_path);conferirErro(arq.error);
   if(!arq.data) throw new Error('Arquivo indisponível.');
-  const bytes=await arq.data.arrayBuffer();
+  let bytes=await arq.data.arrayBuffer();
+  if(pdfProtegido(new Uint8Array(bytes))) {
+   const aberto=await desbloquearPdf(new Uint8Array(bytes),await senhasDaUsina(db,usinaId)).catch(()=>null);
+   if(aberto) {const up=await db.storage.from('contas').upload(conta.arquivo_path,aberto,{contentType:'application/pdf',upsert:true});conferirErro(up.error);bytes=aberto.buffer.slice(aberto.byteOffset,aberto.byteOffset+aberto.byteLength) as ArrayBuffer;}
+  }
   if(pdfProtegido(new Uint8Array(bytes))) {await atualizar({importacao_status:'protegida',importacao_erro:'PDF protegido por senha. Abra o original e confira manualmente.'});return {erro:'PDF protegido por senha.'};}
   const leitura=await leitor.ler({bytes,tipo:'application/pdf'});
   const cliente=leitura.uc?await db.from('clientes').select('id').eq('usina_id',usinaId).eq('ativo',true).eq('uc',leitura.uc).maybeSingle():{data:null,error:null};conferirErro(cliente.error);

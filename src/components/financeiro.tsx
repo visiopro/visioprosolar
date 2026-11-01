@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { Check, Plus, Trash2, Undo2 } from "lucide-react";
+import { Check, Plus, Printer, Trash2, Undo2 } from "lucide-react";
 import { excluirDespesa, pagarDespesa, salvarDespesa, type Estado } from "@/app/(app)/actions";
 import { CATEGORIAS } from "@/lib/financeiro";
 import { Aviso, Botao, Campo, Cartao } from "./ui";
@@ -96,5 +96,14 @@ export function AcoesDespesa({ id, paga, serie, podeExcluir }: { id: string; pag
         </button>
       ) : null}
     </span>
+  );
+}
+
+/** Imprime a página (no celular/computador dá para "Salvar como PDF") */
+export function BotaoImprimir() {
+  return (
+    <button type="button" onClick={() => window.print()} className="flex items-center gap-1.5 text-sm text-nevoa hover:text-texto">
+      <Printer size={15} /> Imprimir / PDF
+    </button>
   );
 }

@@ -31,5 +31,8 @@ export async function GET(req:NextRequest) {
   const {error:e}=await db.from('gmail_conexoes').upsert({usina_id:usina.id,email,refresh_token_enc:cifrar(token.refresh_token,usina.id),ativa:true,erro:null,conectada_em:new Date().toISOString(),...reset},{onConflict:'usina_id'});
   if(e) return retorno(e.code==='23505'?'outra_usina':'falha');
   return retorno('conectado');
- }catch{return retorno('falha');}
+ } catch (err) {
+  console.error('[GMAIL CALLBACK ERROR]', err);
+  return retorno('falha');
+ }
 }

@@ -42,7 +42,9 @@ export async function POST(req: Request) {
         ? "Leitura concluída. Confira com atenção os campos destacados."
         : "Leitura concluída. Confira os valores com a conta antes de emitir.";
     } catch (e) {
-      console.error("leitura da conta falhou:", e instanceof Error ? e.message : e);
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      console.error("leitura da conta falhou:", msg);
+      await supabase.from("contas_energia").update({ leitura_erro: (e instanceof Error ? e.message : String(e)).slice(0, 500) }).eq("id", conta.id).then(() => {}, () => {});
       aviso = "A conta foi guardada, mas a leitura automática falhou. Preencha os campos olhando a conta.";
     }
   }

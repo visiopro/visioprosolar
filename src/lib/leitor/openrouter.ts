@@ -22,7 +22,7 @@ export class LeitorOpenRouter implements LeitorDeConta {
       : { type: "image_url" as const, image_url: { url: dataUrl } };
 
     // Lista com o modelo principal e fallbacks caso o provedor primário esteja temporariamente instável
-    const modelos = Array.from(new Set([this.modelo, "anthropic/claude-sonnet-4.6", "google/gemini-2.5-flash"])).filter(Boolean);
+    const modelos = Array.from(new Set([this.modelo, "anthropic/claude-sonnet-4-5", "google/gemini-2.5-flash"])).filter(Boolean);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: Record<string, any> = {
@@ -37,7 +37,7 @@ export class LeitorOpenRouter implements LeitorDeConta {
 
     // Plugin para converter PDF em markdown (gratuito) se for PDF
     if (isPdf) {
-      body.plugins = [{ id: "file-parser", pdf: { engine: "cloudflare-ai" } }];
+      body.plugins = [{ id: "file-parser", pdf: { engine: "mistral-ocr" } }];
     }
 
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {

@@ -28,6 +28,7 @@ export async function tokenGoogle(parametros: Record<string,string>) {
   });
   if (!r.ok) {
     const b = await r.json().catch(() => ({}));
+    console.error('[GMAIL TOKEN ERROR]', r.status, b);
     throw new ErroGoogle(r.status, b.error === 'invalid_grant');
   }
   const body = await r.json() as {access_token?:string; refresh_token?:string; scope?:string};
@@ -38,6 +39,10 @@ export async function gmail<T>(token: string, caminho: string) {
   const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${caminho}`, {
     headers:{authorization:`Bearer ${token}`}, signal:AbortSignal.timeout(15_000), cache:'no-store',
   });
-  if (!r.ok) throw new ErroGoogle(r.status, r.status === 401);
+  if (!r.ok) {
+    const b = await r.text().catch(() => '');
+    console.error('[GMAIL API ERROR]', r.status, caminho, b);
+    throw new ErroGoogle(r.status, r.status === 401);
+  }
   return await r.json() as T;
 }

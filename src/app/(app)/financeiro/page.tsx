@@ -5,6 +5,8 @@ import { brl, data, hojeBR, mesExtenso, mesRef, somarDias } from "@/lib/format";
 import { CATEGORIAS } from "@/lib/financeiro";
 import { Cartao, Status, cx } from "@/components/ui";
 import { AcoesDespesa, NovaDespesa } from "@/components/financeiro";
+import { RelatorioUsina } from "@/components/relatorio-usina";
+import { montarRelatorio, type FaturaRelatorio } from "@/lib/relatorio";
 
 const deslocar = (mes: string, n: number) => {
   const [a, m] = mes.split("-").map(Number);
@@ -15,11 +17,41 @@ const fimDoMes = (mes: string) => {
   return new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10);
 };
 
-export default async function Financeiro({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
+const MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export default async function Financeiro({ searchParams }: { searchParams: Promise<{ mes?: string; ref?: string }> }) {
   const { supabase, usina, papel } = await contexto();
   const hoje = hojeBR();
-  const q = (await searchParams).mes;
-  const mes = q && /^\d{4}-(0[1-9]|1[0-2])$/.test(q) ? q : hoje.slice(0, 7);
+  const sp = await searchParams;
+  const q = sp.mes;
+  const mes = q && MES.test(q) ? q : hoje.slice(0, 7);
+
+  // Relatório por mês de referência das contas. Sem escolha: a referência mais recente já faturada até este mês
+  let ref = sp.ref && MES.test(sp.ref) ? sp.ref : "";
+  if (!ref) {
+    const { data: ultima } = await supabase.from("faturas").select("referencia").eq("usina_id", usina.id).neq("status", "cancelada").lte("referencia", `${mes}-01`).order("referencia", { ascending: false }).limit(1).maybeSingle();
+    ref = ultima ? String(ultima.referencia).slice(0, 7) : mes;
+  }
+  const iniRef = `${deslocar(ref, -5)}-01`;
+  const [fatRef, despRef] = await Promise.all([
+    supabase.from("faturas").select("id, numero, referencia, status, consumo_kwh, compensada_kwh, sem_usina_centavos, total_centavos, valor_recebido_centavos, custo_usina_centavos, snapshot").eq("usina_id", usina.id).gte("referencia", iniRef).lte("referencia", `${ref}-01`),
+    supabase.from("despesas").select("valor_centavos, vencimento, categoria, fatura_id").eq("usina_id", usina.id).is("fatura_id", null).gte("vencimento", iniRef).lte("vencimento", fimDoMes(ref)),
+  ]);
+  const paraRelatorio = (fatRef.data ?? []).map((f): FaturaRelatorio => {
+    const c = (f.snapshot as { cliente: { nome: string; uc: string } }).cliente;
+    return { ...f, consumo_kwh: f.consumo_kwh === null ? null : Number(f.consumo_kwh), compensada_kwh: Number(f.compensada_kwh ?? 0), cliente: c.nome, uc: c.uc } as FaturaRelatorio;
+  });
+  const despesasRef = despRef.data ?? [];
+  const relatorioDe = (m: string) => montarRelatorio(
+    paraRelatorio.filter((f) => f.referencia.slice(0, 7) === m),
+    despesasRef.filter((d) => d.vencimento.slice(0, 7) === m),
+  );
+  const relatorio = relatorioDe(ref);
+  const serieRelatorio = Array.from({ length: 6 }, (_, i) => {
+    const m = deslocar(ref, i - 5);
+    const r = m === ref ? relatorio : relatorioDe(m);
+    return { m, kwh: r.kwh, lucro: r.lucroLiquido };
+  });
   const ini = `${mes}-01`;
   const fim = fimDoMes(mes);
   const iniSerie = `${deslocar(mes, -5)}-01`;
@@ -82,6 +114,15 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
         </div>
       ) : null}
 
+      <div className="flex items-center gap-1 text-sm text-nevoa print:hidden">
+        <span>Relatório das contas de</span>
+        <Link href={`/financeiro?mes=${mes}&ref=${deslocar(ref, -1)}#relatorio`} aria-label="Referência anterior" className="rounded p-1 hover:text-texto"><ChevronLeft size={16} /></Link>
+        <span className="font-medium text-texto">{mesRef(`${ref}-01`)}</span>
+        <Link href={`/financeiro?mes=${mes}&ref=${deslocar(ref, 1)}#relatorio`} aria-label="Próxima referência" className="rounded p-1 hover:text-texto"><ChevronRight size={16} /></Link>
+      </div>
+      <RelatorioUsina r={relatorio} mes={ref} serie={serieRelatorio} />
+
+      <h2 className="pt-2 font-semibold">Caixa de {mesExtenso(ini)}</h2>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { r: "Recebido", v: recebido, c: "text-economia" },

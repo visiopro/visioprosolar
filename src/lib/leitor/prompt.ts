@@ -22,6 +22,10 @@ Responda SOMENTE com um objeto JSON, sem texto antes ou depois, neste formato:
   "te_valor": number | null,         // VALOR (R$) da linha Consumo-TE
   "tarifa": number | null,           // só se a conta trouxer uma tarifa única (sem separar TUSD e TE); senão null
   "bandeira": number | null,         // soma em R$ das linhas de bandeira tarifária (ex.: "Acrés. Band. AMARELA"); 0 se não houver. Não inclua "TUSD GD"
+  "bandeira_vigente": string | null, // cor da frase "bandeira em vigor" (ex.: "Na data da leitura a bandeira em vigor é a Verde" -> "verde"; "amarela", "vermelha patamar 1", "vermelha patamar 2"); null se a conta não disser
+  "aliquota_icms": number | null,    // ALÍQUOTA ICMS (%) das linhas de consumo (ex.: 20,50 -> 20.5)
+  "aliquota_pis": number | null,     // alíquota (%) do PIS no quadro de tributos (ex.: 1,18 -> 1.18)
+  "aliquota_cofins": number | null,  // alíquota (%) da COFINS no quadro de tributos (ex.: 5,46 -> 5.46)
   "iluminacao_publica": number | null, // R$ da contribuição de iluminação pública (CIP/COSIP); 0 se não houver
   "valor_conta": number | null,      // TOTAL A PAGAR da conta, em reais
   "vencimento_conta": "AAAA-MM-DD" | null,

@@ -1,3 +1,5 @@
+import { corBandeira, estimarBandeira, fatorTributos, BANDEIRAS, type CorBandeira } from "./bandeira.ts";
+
 /** O que o leitor devolve. Tudo pode vir nulo: nada é inventado. */
 export type LeituraConta = {
   uc: string | null;
@@ -9,6 +11,7 @@ export type LeituraConta = {
   compensada_kwh: number | null;
   tarifa: number | null;              // R$/kWh com tributos (TUSD + TE)
   bandeira: number | null;            // R$
+  bandeira_vigente: CorBandeira | null; // cor informada na conta ("bandeira em vigor")
   iluminacao_publica: number | null;  // R$
   valor_conta: number | null;         // R$
   vencimento_conta: string | null;    // AAAA-MM-DD
@@ -88,6 +91,7 @@ export function normalizarLeitura(bruto: Record<string, unknown>): LeituraConta 
     compensada_kwh: numeroOuNulo(bruto.compensada_kwh),
     tarifa: somarTarifa(bruto),
     bandeira: numeroOuNulo(bruto.bandeira),
+    bandeira_vigente: corBandeira(bruto.bandeira_vigente),
     iluminacao_publica: numeroOuNulo(bruto.iluminacao_publica),
     valor_conta: numeroOuNulo(bruto.valor_conta),
     vencimento_conta: venc && /^\d{4}-\d{2}-\d{2}$/.test(venc) ? venc : null,
@@ -106,6 +110,36 @@ export function normalizarLeitura(bruto: Record<string, unknown>): LeituraConta 
       `Conta com créditos: o medidor marcou ${leitura.consumo_kwh} kWh e a distribuidora cobrou ${quantFaturada} kWh. Bandeira ajustada ao consumo real: R$ ${leitura.bandeira.toFixed(2).replace(".", ",")} na conta → R$ ${cheia.toFixed(2).replace(".", ",")}.`,
     ].filter(Boolean).join(" ");
     leitura.bandeira = cheia;
+  }
+
+  const brl = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
+  const obs = (t: string) => { leitura.observacoes = [leitura.observacoes, t].filter(Boolean).join(" "); };
+
+  // Conta sem linha de bandeira (ex.: todo o consumo compensado por créditos):
+  // usa a cor informada na conta. Verde = sem acréscimo; amarela/vermelha = estimada sobre o consumo real.
+  if (!leitura.bandeira && leitura.bandeira_vigente && leitura.consumo_kwh) {
+    const cor = leitura.bandeira_vigente;
+    if (cor === "verde") {
+      leitura.bandeira = 0;
+      obs("Bandeira verde na conta: sem acréscimo de bandeira.");
+    } else {
+      const fator = fatorTributos(numeroOuNulo(bruto.aliquota_icms), numeroOuNulo(bruto.aliquota_pis), numeroOuNulo(bruto.aliquota_cofins));
+      leitura.bandeira = estimarBandeira(cor, leitura.consumo_kwh, fator);
+      if (!duvidosos.includes("bandeira")) duvidosos.push("bandeira");
+      obs(`A conta não traz linha de bandeira, mas informa bandeira ${BANDEIRAS[cor].rotulo}. Bandeira estimada sobre ${leitura.consumo_kwh} kWh com tributos: ${brl(leitura.bandeira)}. Confira.`);
+    }
+  }
+
+  // Prova do consumo: com créditos, consumo real = faturado + compensado.
+  // Se a leitura do medidor não bater com isso, algum número foi mal lido.
+  const fat = leitura.consumo_faturado_kwh;
+  const comp = leitura.compensada_kwh;
+  if (leitura.consumo_kwh !== null && fat !== null && comp !== null && comp > 0) {
+    const esperado = Math.round((fat + comp) * 1000) / 1000;
+    if (Math.abs(leitura.consumo_kwh - esperado) > Math.max(1, esperado * 0.02) && !duvidosos.includes("consumo_kwh")) {
+      duvidosos.push("consumo_kwh");
+      obs(`Consumo lido (${leitura.consumo_kwh} kWh) não bate com faturado + compensado (${fat} + ${comp} = ${esperado} kWh). Confira as leituras do medidor.`);
+    }
   }
 
   const prova = tarifaConfere(bruto);

@@ -29,7 +29,8 @@ export type DadosFaturaPdf = {
   cobranca_link?: string | null;
   contato_whatsapp?: string | null; // WhatsApp de atendimento da usina (55 + DDD + número)
   portal_url?: string | null;       // portal do cliente
-  conta_anexa?: boolean;            // conta da distribuidora vai nas páginas seguintes, marcada "NÃO PAGAR"
+  conta_anexa?: boolean;
+  recebedor?: { nome: string; documento: string | null } | null; // quem aparece no banco ao pagar o PIX            // conta da distribuidora vai nas páginas seguintes, marcada "NÃO PAGAR"
   snapshot: {
     cliente: { nome: string; documento: string | null; uc: string; distribuidora: string };
     usina: { nome: string; documento: string | null; pix_favorecido: string | null; logo_path?: string | null };
@@ -51,14 +52,14 @@ const s = StyleSheet.create({
     fontFamily: "Helvetica",
     fontSize: 10,
     color: TINTA,
-    paddingBottom: 45,
+    paddingBottom: 54,
     backgroundColor: "#FFFFFF",
   },
   topo: {
     backgroundColor: NAVY,
     paddingHorizontal: 36,
-    paddingTop: 24,
-    paddingBottom: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -109,7 +110,7 @@ const s = StyleSheet.create({
   },
   corpo: {
     paddingHorizontal: 36,
-    paddingTop: 16,
+    paddingTop: 12,
   },
 
   // Card Cliente e Vencimento
@@ -119,7 +120,7 @@ const s = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: FUNDO_BLOCO,
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -178,7 +179,7 @@ const s = StyleSheet.create({
     borderColor: LINHA,
     borderRadius: 6,
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: 10,
     overflow: "hidden",
   },
   destaqueLado: {
@@ -237,11 +238,11 @@ const s = StyleSheet.create({
     borderColor: LINHA,
     borderRadius: 6,
     overflow: "hidden",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   tabelaCabecalho: {
     backgroundColor: NAVY,
-    paddingVertical: 7,
+    paddingVertical: 6,
     paddingHorizontal: 12,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -262,7 +263,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 6.5,
+    paddingVertical: 5,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: LINHA,
@@ -320,7 +321,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5A93C",
     borderRadius: 6,
-    padding: 12,
+    padding: 10,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFFDF5",
@@ -578,12 +579,9 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
                 <Text style={s.pixInstrucao}>
                   Aponte a câmera do aplicativo do seu banco para o QR code ou utilize o código copia e cola abaixo.
                 </Text>
-                <Text style={s.pixFavorecido}>
-                  Favorecido: {usina.pix_favorecido || usina.nome}
-                </Text>
                 {f.cobranca_link ? (
                   <Text style={s.pixOutras}>
-                    Outras formas de pagamento: <Link src={f.cobranca_link} style={{ color: NAVY, fontFamily: "Helvetica-Bold" }}>{f.cobranca_link}</Link>
+                    Prefere cartão ou boleto? <Link src={f.cobranca_link} style={{ color: NAVY, fontFamily: "Helvetica-Bold" }}>Abrir página de pagamento</Link>
                   </Text>
                 ) : null}
                 <View style={s.pixCaixaCodigo}>
@@ -598,13 +596,29 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
         </View>
 
         <View style={s.rodape} fixed>
-          <Text>{f.modo_desconto === "percentual_conta_cheia" ? "Fatura calculada a partir da conta da distribuidora do mês de referência." : "Fatura de geração compartilhada. A conta da distribuidora continua sendo paga à parte."}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: TINTA, fontFamily: "Helvetica-Bold" }}>
+              Favorecido do PIX: {recebedorDe(f).nome}{recebedorDe(f).documento ? `  ·  ${documentoFmt(recebedorDe(f).documento!)}` : ""}
+            </Text>
+            <Text style={{ marginTop: 2 }}>{f.modo_desconto === "percentual_conta_cheia" ? "Fatura calculada a partir da conta da distribuidora do mês de referência." : "Fatura de geração compartilhada. A conta da distribuidora continua sendo paga à parte."}</Text>
+          </View>
           <Text>VisioPro Solar</Text>
         </View>
       </Page>
     </Document>
   );
 }
+
+/** Quem recebe o PIX (no banco aparece esse nome) */
+export const recebedorDe = (f: DadosFaturaPdf) =>
+  f.recebedor?.nome ? f.recebedor : { nome: f.snapshot.usina.pix_favorecido || f.snapshot.usina.nome, documento: f.snapshot.usina.documento };
+
+const documentoFmt = (v: string) => {
+  const d = v.replace(/\D/g, "");
+  if (d.length === 14) return `CNPJ ${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+  if (d.length === 11) return `CPF ${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  return v;
+};
 
 const telefone = (v: string) => {
   const d = v.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
@@ -628,7 +642,7 @@ function Itens({ titulo, itens, meio }: { titulo: string; itens: string[]; meio?
 /** Bloco de orientações ao cliente, no estilo das contas de energia */
 function Informacoes({ f }: { f: DadosFaturaPdf }) {
   const { usina, cliente } = f.snapshot;
-  const favorecido = usina.pix_favorecido || usina.nome;
+  const favorecido = recebedorDe(f).nome;
   const distribuidora = (cliente.distribuidora || "distribuidora").split(" (")[0];
   const contaCheia = f.modo_desconto === "percentual_conta_cheia";
   const zap = f.contato_whatsapp ? telefone(f.contato_whatsapp) : null;

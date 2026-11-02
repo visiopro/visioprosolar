@@ -54,6 +54,21 @@ export function chamarMP(token: string) {
   };
 }
 
+/** Titular da conta Mercado Pago (é o nome que aparece no banco ao pagar o PIX) */
+export async function recebedorMercadoPago(token: string): Promise<{ nome: string; documento: string | null } | null> {
+  try {
+    const eu = await chamarMP(token)<{
+      first_name?: string; last_name?: string; nickname?: string;
+      company?: { corporate_name?: string; brand_name?: string } | null;
+      identification?: { type?: string; number?: string } | null;
+    }>("GET", "/users/me");
+    const nome = (eu.company?.corporate_name || [eu.first_name, eu.last_name].filter(Boolean).join(" ") || eu.nickname || "").trim();
+    return nome ? { nome: nome.toUpperCase(), documento: eu.identification?.number?.replace(/\D/g, "") || null } : null;
+  } catch {
+    return null;
+  }
+}
+
 export function gatewayMercadoPago(token: string, urlNotificacao: string): Gateway {
   const chamar = chamarMP(token);
 

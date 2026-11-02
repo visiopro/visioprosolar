@@ -19,12 +19,12 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     .lte("referencia", f.referencia);
   const acumulada = (anteriores ?? []).reduce((soma, r) => soma + Number(r.economia_centavos), 0);
 
+  const [{ data: u }, { data: cli }] = await Promise.all([
+    supabase.from("usinas").select("logo_path, contato_whatsapp").eq("id", f.usina_id).maybeSingle(),
+    supabase.from("clientes").select("portal_token").eq("id", f.cliente_id).maybeSingle(),
+  ]);
   // logo: a gravada na emissão; faturas antigas usam a logo atual da usina
-  let logoPath: string | null = (f.snapshot as { usina: { logo_path?: string | null } }).usina.logo_path ?? null;
-  if (!logoPath) {
-    const { data: u } = await supabase.from("usinas").select("logo_path").eq("id", f.usina_id).maybeSingle();
-    logoPath = u?.logo_path ?? null;
-  }
+  const logoPath: string | null = (f.snapshot as { usina: { logo_path?: string | null } }).usina.logo_path ?? u?.logo_path ?? null;
   let logo: Buffer | null = null;
   if (logoPath) {
     const { data: arq } = await supabase.storage.from("logos").download(logoPath);
@@ -46,6 +46,8 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     total_centavos: Number(f.total_centavos),
     economia_centavos: Number(f.economia_centavos),
     economia_acumulada_centavos: acumulada,
+    contato_whatsapp: (u?.contato_whatsapp as string | null) ?? null,
+    portal_url: cli?.portal_token ? linkPortal(cli.portal_token as string) : null,
   };
   const pdf = await gerarPdfFatura(dados);
   const nome = `Fatura_${nFatura(f.numero)}_${mesRef(f.referencia).replace("/", "-")}.pdf`;

@@ -29,6 +29,7 @@ export type DadosFaturaPdf = {
   cobranca_link?: string | null;
   contato_whatsapp?: string | null; // WhatsApp de atendimento da usina (55 + DDD + número)
   portal_url?: string | null;       // portal do cliente
+  conta_anexa?: boolean;            // conta da distribuidora vai nas páginas seguintes, marcada "NÃO PAGAR"
   snapshot: {
     cliente: { nome: string; documento: string | null; uc: string; distribuidora: string };
     usina: { nome: string; documento: string | null; pix_favorecido: string | null; logo_path?: string | null };
@@ -644,7 +645,9 @@ function Informacoes({ f }: { f: DadosFaturaPdf }) {
   const conta = contaCheia
     ? [
         `A conta da ${distribuidora} desta unidade está no nome da usina e é paga por ela: você paga só esta fatura.`,
-        "\"Sem a usina\" é o que você pagaria à distribuidora, com bandeira e iluminação pública.",
+        f.conta_anexa
+          ? "A cópia da conta segue na próxima página, marcada NÃO PAGAR."
+          : "\"Sem a usina\" é o que você pagaria à distribuidora, com bandeira e iluminação pública.",
       ]
     : [
         `Continue pagando a conta da ${distribuidora} normalmente. Esta fatura é só a energia da usina.`,

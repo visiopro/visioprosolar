@@ -58,6 +58,9 @@ export function FormUsina({
         <Campo rotulo="Cidade do PIX" ajuda="Até 15 letras.">
           <input name="pix_cidade" maxLength={15} defaultValue={usina.pix_cidade ?? ""} className="campo" />
         </Campo>
+        <Campo rotulo="CPF/CNPJ do favorecido do PIX" ajuda="Do titular da chave PIX, como aparece no banco ao pagar. Vai no rodapé da fatura.">
+          <input name="pix_documento" inputMode="numeric" defaultValue={usina.pix_documento ?? ""} placeholder="00.000.000/0001-00" className="campo" />
+        </Campo>
         <div className="sm:col-span-2">
           <p className="mb-1.5 text-sm text-nevoa">WhatsApp</p>
           <p className="text-sm">

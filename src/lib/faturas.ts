@@ -5,6 +5,8 @@ import { brl, data, mesExtenso, mesRef, nFatura } from "./format";
 import { enviarDocumento, enviarTexto, usaWhatsAppOficial, whatsappDisponivel } from "./whatsapp";
 import type { Usina } from "./usina";
 import { segredos } from "./cobranca";
+import { anexarContaOriginal } from "./pdf/anexar-conta";
+import { desbloquearPdf, pdfComSenha, senhasDaUsina } from "./pdf-senha";
 
 /** Carrega a fatura (respeitando o client recebido) e gera o PDF */
 export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
@@ -49,7 +51,27 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     contato_whatsapp: (u?.contato_whatsapp as string | null) ?? null,
     portal_url: cli?.portal_token ? linkPortal(cli.portal_token as string) : null,
   };
-  const pdf = await gerarPdfFatura(dados);
+  // Conta no nome da usina: anexa a conta original da distribuidora marcada "NÃO PAGAR" (transparência)
+  let contaOriginal: { bytes: Uint8Array; tipo: string } | null = null;
+  if (f.modo_desconto === "percentual_conta_cheia" && f.conta_id) {
+    const { data: conta } = await supabase.from("contas_energia").select("arquivo_path, arquivo_tipo").eq("id", f.conta_id).maybeSingle();
+    if (conta?.arquivo_path && ["application/pdf", "image/jpeg", "image/png"].includes(conta.arquivo_tipo)) {
+      const { data: arq } = await supabase.storage.from("contas").download(conta.arquivo_path);
+      if (arq) {
+        let bytes: Uint8Array = new Uint8Array(await arq.arrayBuffer());
+        if (conta.arquivo_tipo === "application/pdf" && pdfComSenha(bytes)) {
+          bytes = (await desbloquearPdf(bytes, await senhasDaUsina(supabase, f.usina_id)).catch(() => null)) ?? new Uint8Array();
+        }
+        if (bytes.length) contaOriginal = { bytes, tipo: conta.arquivo_tipo };
+      }
+    }
+  }
+  dados.conta_anexa = !!contaOriginal;
+  let pdf: Buffer = await gerarPdfFatura(dados);
+  if (contaOriginal) {
+    const distribuidora = String((f.snapshot as { cliente: { distribuidora?: string } }).cliente.distribuidora ?? "distribuidora").split(" (")[0];
+    pdf = Buffer.from(await anexarContaOriginal(new Uint8Array(pdf), contaOriginal, distribuidora));
+  }
   const nome = `Fatura_${nFatura(f.numero)}_${mesRef(f.referencia).replace("/", "-")}.pdf`;
   return { fatura: f, pdf, nome };
 }

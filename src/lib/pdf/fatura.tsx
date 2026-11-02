@@ -27,6 +27,8 @@ export type DadosFaturaPdf = {
   economia_acumulada_centavos: number;
   pix_copia_cola: string | null;
   cobranca_link?: string | null;
+  contato_whatsapp?: string | null; // WhatsApp de atendimento da usina (55 + DDD + número)
+  portal_url?: string | null;       // portal do cliente
   snapshot: {
     cliente: { nome: string; documento: string | null; uc: string; distribuidora: string };
     usina: { nome: string; documento: string | null; pix_favorecido: string | null; logo_path?: string | null };
@@ -367,6 +369,40 @@ const s = StyleSheet.create({
     lineHeight: 1.3,
   },
 
+  // Informações importantes
+  info: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: LINHA,
+    borderRadius: 6,
+  },
+  infoTopo: {
+    backgroundColor: FUNDO_BLOCO,
+    borderBottomWidth: 1,
+    borderBottomColor: LINHA,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 8.5,
+    color: NAVY,
+    letterSpacing: 0.6,
+  },
+  infoColunas: { flexDirection: "row" },
+  infoColuna: { flex: 1, paddingHorizontal: 10, paddingVertical: 7 },
+  infoColunaMeio: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: "#E2E8F0" },
+  infoTitulo: { fontFamily: "Helvetica-Bold", fontSize: 8.5, color: TINTA, marginBottom: 4 },
+  infoItem: { flexDirection: "row", marginBottom: 2 },
+  infoMarca: { width: 8, fontSize: 7.5, color: OURO, fontFamily: "Helvetica-Bold" },
+  infoTexto: { flex: 1, fontSize: 7.5, color: CINZA, lineHeight: 1.35 },
+  infoAtendimento: {
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    fontSize: 7.5,
+    color: CINZA,
+  },
+
   // Rodapé
   rodape: {
     position: "absolute",
@@ -557,6 +593,7 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
               </View>
             </View>
           ) : null}
+          <Informacoes f={f} />
         </View>
 
         <View style={s.rodape} fixed>
@@ -565,6 +602,76 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
         </View>
       </Page>
     </Document>
+  );
+}
+
+const telefone = (v: string) => {
+  const d = v.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+  return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}` : v;
+};
+
+function Itens({ titulo, itens, meio }: { titulo: string; itens: string[]; meio?: boolean }) {
+  return (
+    <View style={meio ? [s.infoColuna, s.infoColunaMeio] : s.infoColuna}>
+      <Text style={s.infoTitulo}>{titulo}</Text>
+      {itens.map((t, i) => (
+        <View key={i} style={s.infoItem}>
+          <Text style={s.infoMarca}>•</Text>
+          <Text style={s.infoTexto}>{t}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Bloco de orientações ao cliente, no estilo das contas de energia */
+function Informacoes({ f }: { f: DadosFaturaPdf }) {
+  const { usina, cliente } = f.snapshot;
+  const favorecido = usina.pix_favorecido || usina.nome;
+  const distribuidora = (cliente.distribuidora || "distribuidora").split(" (")[0];
+  const contaCheia = f.modo_desconto === "percentual_conta_cheia";
+  const zap = f.contato_whatsapp ? telefone(f.contato_whatsapp) : null;
+
+  const pagar = f.status === "paga"
+    ? ["Esta fatura já está paga. Obrigado!", "Guarde este documento como comprovante."]
+    : [
+        `Pague até ${data(f.vencimento)} pelo PIX acima${f.cobranca_link ? " ou pelo link de pagamento" : ""}.`,
+        `Confira se o favorecido é ${favorecido}.`,
+        "Após o vencimento: multa de 2% e juros de 1% ao mês.",
+        f.cobranca_link ? "O pagamento é reconhecido sozinho. Guarde o comprovante." : "Guarde o comprovante do pagamento.",
+      ];
+
+  const conta = contaCheia
+    ? [
+        `A conta da ${distribuidora} desta unidade está no nome da usina e é paga por ela: você paga só esta fatura.`,
+        "\"Sem a usina\" é o que você pagaria à distribuidora, com bandeira e iluminação pública.",
+      ]
+    : [
+        `Continue pagando a conta da ${distribuidora} normalmente. Esta fatura é só a energia da usina.`,
+        "A energia da usina aparece na sua conta como créditos compensados.",
+      ];
+
+  const dicas = [
+    "Chuveiro no modo verão e banhos mais curtos.",
+    "Geladeira bem fechada e com a borracha em bom estado.",
+    "Tire da tomada aparelhos em espera.",
+  ];
+
+  return (
+    <View style={s.info} wrap={false}>
+      <Text style={s.infoTopo}>INFORMAÇÕES IMPORTANTES</Text>
+      <View style={s.infoColunas}>
+        <Itens titulo="Como pagar" itens={pagar} />
+        <Itens titulo="Sobre sua fatura" itens={conta} meio />
+        <Itens titulo="Dicas para economizar" itens={dicas} />
+      </View>
+      {zap || f.portal_url ? (
+        <Text style={s.infoAtendimento}>
+          Atendimento {usina.nome}:{zap ? ` WhatsApp ${zap}` : ""}{zap && f.portal_url ? "  ·  " : " "}
+          {f.portal_url ? <>Faturas e histórico em <Link src={f.portal_url} style={{ color: NAVY, fontFamily: "Helvetica-Bold" }}>{f.portal_url.replace(/^https?:\/\//, "")}</Link></> : null}
+        </Text>
+      ) : null}
+    </View>
   );
 }
 

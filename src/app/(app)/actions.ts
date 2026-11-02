@@ -14,7 +14,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 import { cobrar, obterGateway, segredos, NOMES_GATEWAY, type NomeGateway } from "@/lib/cobranca";
 import { ambienteDaChave, gatewayAsaas } from "@/lib/cobranca/asaas";
-import { gatewayMercadoPago } from "@/lib/cobranca/mercadopago";
+import { gatewayMercadoPago, recebedorMercadoPago } from "@/lib/cobranca/mercadopago";
 import { hojeBR } from "@/lib/format";
 import { CATEGORIAS } from "@/lib/financeiro";
 import { normalizarUC } from "@/lib/leitor/tipos";
@@ -709,7 +709,12 @@ export async function salvarCobranca(_: Estado, form: FormData): Promise<Estado>
 
   const { error } = await supabase
     .from("usinas")
-    .update({ gateway, asaas_ativo: gateway === "asaas", asaas_ambiente: ambiente, asaas_forma: forma, asaas_notificar: notificar })
+    .update({
+      gateway, asaas_ativo: gateway === "asaas", asaas_ambiente: ambiente, asaas_forma: forma, asaas_notificar: notificar,
+      ...(gateway === "mercadopago" && mpToken
+        ? await recebedorMercadoPago(mpToken).then((r) => ({ recebedor_nome: r?.nome ?? null, recebedor_documento: r?.documento ?? null }))
+        : { recebedor_nome: null, recebedor_documento: null }),
+    })
     .eq("id", usina.id);
   if (error) {
     console.error("salvar cobrança", error);

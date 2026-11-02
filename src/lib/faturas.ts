@@ -5,6 +5,8 @@ import { brl, data, mesExtenso, mesRef, nFatura } from "./format";
 import { enviarDocumento, enviarTexto, usaWhatsAppOficial, whatsappDisponivel } from "./whatsapp";
 import type { Usina } from "./usina";
 import { segredos } from "./cobranca";
+import { recebedorMercadoPago } from "./cobranca/mercadopago";
+import { supabaseAdmin } from "./supabase/admin";
 import { anexarContaOriginal } from "./pdf/anexar-conta";
 import { desbloquearPdf, pdfComSenha, senhasDaUsina } from "./pdf-senha";
 
@@ -22,7 +24,7 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
   const acumulada = (anteriores ?? []).reduce((soma, r) => soma + Number(r.economia_centavos), 0);
 
   const [{ data: u }, { data: cli }] = await Promise.all([
-    supabase.from("usinas").select("logo_path, contato_whatsapp").eq("id", f.usina_id).maybeSingle(),
+    supabase.from("usinas").select("logo_path, contato_whatsapp, recebedor_nome, recebedor_documento").eq("id", f.usina_id).maybeSingle(),
     supabase.from("clientes").select("portal_token").eq("id", f.cliente_id).maybeSingle(),
   ]);
   // logo: a gravada na emissão; faturas antigas usam a logo atual da usina
@@ -50,7 +52,22 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     economia_acumulada_centavos: acumulada,
     contato_whatsapp: (u?.contato_whatsapp as string | null) ?? null,
     portal_url: cli?.portal_token ? linkPortal(cli.portal_token as string) : null,
+    recebedor: null,
   };
+
+  // PIX dinâmico do Mercado Pago: no banco aparece o titular da conta MP, não o nome da usina
+  if (f.cobranca_gateway === "mercadopago") {
+    if (u?.recebedor_nome) {
+      dados.recebedor = { nome: u.recebedor_nome as string, documento: (u.recebedor_documento as string | null) ?? null };
+    } else {
+      const token = (await segredos(f.usina_id)).mpToken;
+      const r = token ? await recebedorMercadoPago(token) : null;
+      if (r) {
+        dados.recebedor = r;
+        await supabaseAdmin().from("usinas").update({ recebedor_nome: r.nome, recebedor_documento: r.documento }).eq("id", f.usina_id);
+      }
+    }
+  }
   // Conta no nome da usina: anexa a conta original da distribuidora marcada "NÃO PAGAR" (transparência)
   let contaOriginal: { bytes: Uint8Array; tipo: string } | null = null;
   if (f.modo_desconto === "percentual_conta_cheia" && f.conta_id) {

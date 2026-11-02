@@ -3,9 +3,9 @@ import {supabaseAdmin} from '@/lib/supabase/admin';
 import {obterLeitor} from '@/lib/leitor';
 import {desbloquearPdf,senhasDaUsina} from '@/lib/pdf-senha';
 import {gmail,tokenGoogle,ErroGoogle} from './api';
-import {decifrar,consultaGmail,anexosPdf,hash,ehPdf,pdfProtegido,type Parte} from './seguranca';
+import {decifrar,consultaGmail,assuntoConfere,anexosPdf,hash,ehPdf,pdfProtegido,type Parte} from './seguranca';
 
-type Conexao={usina_id:string;email:string;refresh_token_enc:string;remetentes:string[];buscar_desde:string;janela_fim:string|null;pagina:string|null};
+type Conexao={usina_id:string;email:string;refresh_token_enc:string;remetentes:string[];assuntos?:string[];buscar_desde:string;janela_fim:string|null;pagina:string|null};
 type Mensagem={payload:Parte & {headers?:{name:string;value:string}[]}};
 const MAX_PDF=10*1024*1024;
 function conferirErro(error:unknown) {if(error) throw new Error('Falha ao registrar o processamento no banco. Tente novamente.');}
@@ -20,10 +20,11 @@ export async function sincronizar(usinaId:string) {
  const atualizar=async (v:Record<string,unknown>)=>{const r=await db.from('gmail_conexoes').update(v).eq('usina_id',usinaId).eq('lock_id',lock);conferirErro(r.error);};
  let importadas=0,mensagens=0;
  try {
-  if(!c.remetentes.length) throw new Error('remetentes');
+  const assuntos=c.assuntos??[];
+  if(!c.remetentes.length&&!assuntos.length) throw new Error('remetentes');
   const token=await tokenGoogle({grant_type:'refresh_token',refresh_token:decifrar(c.refresh_token_enc,usinaId)});
   const fim=c.janela_fim??new Date().toISOString();
-  const qs=new URLSearchParams({q:consultaGmail(c.remetentes,c.buscar_desde,fim),maxResults:'20'});
+  const qs=new URLSearchParams({q:consultaGmail(c.remetentes,c.buscar_desde,fim,assuntos),maxResults:'20'});
   if(c.pagina) qs.set('pageToken',c.pagina);
   const lista=await gmail<{messages?:{id:string}[];nextPageToken?:string}>(token.access_token,'messages?'+qs);
   const ids=lista.messages??[];
@@ -39,8 +40,9 @@ export async function sincronizar(usinaId:string) {
     const m=await gmail<Mensagem>(token.access_token,`messages/${encodeURIComponent(job.message_id)}?format=full`);
     const from=m.payload.headers?.find(h=>h.name.toLowerCase()==='from')?.value??'';
     const remetente=(from.match(/<([^<>]+)>/)?.[1]??from).trim().toLowerCase();
-    if(!c.remetentes.includes(remetente)) {
-     const r=await db.from('gmail_mensagens').update({status:'concluida',erro:'Remetente diferente do filtro cadastrado; mensagem ignorada.'}).eq('id',job.id).eq('usina_id',usinaId);conferirErro(r.error);continue;
+    const assunto=m.payload.headers?.find(h=>h.name.toLowerCase()==='subject')?.value??'';
+    if(!c.remetentes.includes(remetente)&&!assuntoConfere(assunto,assuntos)) {
+     const r=await db.from('gmail_mensagens').update({status:'concluida',erro:'Remetente e assunto fora do filtro cadastrado; mensagem ignorada.'}).eq('id',job.id).eq('usina_id',usinaId);conferirErro(r.error);continue;
     }
     const partes=anexosPdf(m.payload);
     if(partes.length>30) throw new Error('Muitos anexos. Importe esta mensagem manualmente.');
@@ -75,7 +77,7 @@ export async function sincronizar(usinaId:string) {
   await atualizar({erro:falhas?'Há mensagens com falha; novas tentativas serão feitas automaticamente. Veja as pendências abaixo.':null});
   return {ocupado:false,importadas,mensagens};
  }catch(e){
-  const erro=e instanceof Error&&e.message==='remetentes'?'Cadastre o remetente das faturas antes de sincronizar.':erroSeguro(e);
+  const erro=e instanceof Error&&e.message==='remetentes'?'Cadastre o remetente ou o assunto das faturas antes de sincronizar.':erroSeguro(e);
   await atualizar({erro,...(e instanceof ErroGoogle&&e.reconectar?{ativa:false}:{}),...(e instanceof ErroGoogle&&e.status===400&&c.pagina?{pagina:null}: {})});
   return {ocupado:false,importadas,mensagens,erro};
  }finally{await atualizar({lock_id:null,lock_ate:null});}

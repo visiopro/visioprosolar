@@ -637,6 +637,7 @@ function Informacoes({ f }: { f: DadosFaturaPdf }) {
     : [
         `Pague até ${data(f.vencimento)} pelo PIX acima${f.cobranca_link ? " ou pelo link de pagamento" : ""}.`,
         `Confira se o favorecido é ${favorecido}.`,
+        "Após o vencimento: multa de 2% e juros de 1% ao mês.",
         f.cobranca_link ? "O pagamento é reconhecido sozinho. Guarde o comprovante." : "Guarde o comprovante do pagamento.",
       ];
 

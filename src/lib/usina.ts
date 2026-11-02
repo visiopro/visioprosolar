@@ -10,6 +10,7 @@ export type Usina = {
   pix_chave: string | null;
   pix_favorecido: string | null;
   pix_cidade: string | null;
+  pix_documento?: string | null;
   whatsapp_instancia: string | null;
   dias_vencimento: number;
   asaas_ativo: boolean;

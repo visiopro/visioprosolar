@@ -24,7 +24,7 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
   const acumulada = (anteriores ?? []).reduce((soma, r) => soma + Number(r.economia_centavos), 0);
 
   const [{ data: u }, { data: cli }] = await Promise.all([
-    supabase.from("usinas").select("logo_path, contato_whatsapp, recebedor_nome, recebedor_documento").eq("id", f.usina_id).maybeSingle(),
+    supabase.from("usinas").select("logo_path, contato_whatsapp, recebedor_nome, recebedor_documento, pix_favorecido, pix_documento, documento").eq("id", f.usina_id).maybeSingle(),
     supabase.from("clientes").select("portal_token").eq("id", f.cliente_id).maybeSingle(),
   ]);
   // logo: a gravada na emissão; faturas antigas usam a logo atual da usina
@@ -52,7 +52,10 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     economia_acumulada_centavos: acumulada,
     contato_whatsapp: (u?.contato_whatsapp as string | null) ?? null,
     portal_url: cli?.portal_token ? linkPortal(cli.portal_token as string) : null,
-    recebedor: null,
+    // PIX fixo: titular da chave cadastrado em Ajustes
+    recebedor: u?.pix_favorecido
+      ? { nome: String(u.pix_favorecido), documento: (u.pix_documento as string | null) || (u.documento as string | null) || null }
+      : null,
   };
 
   // PIX dinâmico do Mercado Pago: no banco aparece o titular da conta MP, não o nome da usina

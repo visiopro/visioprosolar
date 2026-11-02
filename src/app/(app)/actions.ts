@@ -533,6 +533,8 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
   const pixChave = pixNormal?.chave ?? "";
   const favorecido = txt(form, "pix_favorecido");
   const cidade = txt(form, "pix_cidade");
+  const pixDoc = soDigitos(txt(form, "pix_documento"));
+  if (pixDoc && pixDoc.length !== 11 && pixDoc.length !== 14) return { erro: "CPF/CNPJ do favorecido inválido: use 11 ou 14 números." };
   const dias = Number(txt(form, "dias_vencimento"));
   if (nome.length < 2) return { erro: "Informe o nome da usina." };
   if (pixChave && (!favorecido || !cidade)) return { erro: "Para gerar o PIX, informe favorecido e cidade." };
@@ -550,6 +552,7 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
       pix_chave: pixChave || null,
       pix_favorecido: favorecido || null,
       pix_cidade: cidade || null,
+      pix_documento: soDigitos(txt(form, "pix_documento")) || null,
       dias_vencimento: dias,
       whatsapp_auto: form.get("whatsapp_auto") === "on",
       bandeira_padrao: Math.max(0, parseNumeroBR(txt(form, "bandeira_padrao")) ?? 0),

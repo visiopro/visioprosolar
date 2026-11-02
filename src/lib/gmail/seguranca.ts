@@ -33,10 +33,27 @@ export function validarRemetentes(valor: unknown): string[] {
   }
   return lista;
 }
-export function consultaGmail(remetentes: string[], desde: string, ate: string) {
+/** Termos do assunto: até 5, só letras, números, espaço e - . / (sem operadores do Gmail) */
+export function validarAssuntos(valor: unknown): string[] {
+  if (valor === undefined || valor === null || valor === '') return [];
+  if (typeof valor !== 'string') throw new Error('Assunto inválido.');
+  const lista = [...new Set(valor.split(/[,;\n]/).map(x => x.trim().replace(/\s+/g, ' ')).filter(Boolean))];
+  if (lista.length > 5 || lista.some(x => x.length < 3 || x.length > 60 || !/^[\p{L}\p{N} .\/-]+$/u.test(x) || /^(or|and)$/i.test(x))) {
+    throw new Error('Assunto: até 5 termos de 3 a 60 caracteres (letras, números e espaços), separados por vírgula.');
+  }
+  return lista;
+}
+const semAcento = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+/** O assunto da mensagem contém algum dos termos (sem diferenciar acento e maiúsculas) */
+export const assuntoConfere = (assunto: string, termos: string[]) => termos.some(t => semAcento(assunto).includes(semAcento(t)));
+
+export function consultaGmail(remetentes: string[], desde: string, ate: string, assuntos: string[] = []) {
   // Não aceitamos consultas arbitrárias nem URLs fornecidas por e-mail.
-  const emails = validarRemetentes(remetentes.join(','));
-  return `{${emails.map(x => `from:${x}`).join(' ')}} has:attachment filename:pdf after:${Math.floor(Date.parse(desde)/1000)} before:${Math.floor(Date.parse(ate)/1000)}`;
+  const emails = remetentes.length ? validarRemetentes(remetentes.join(',')) : [];
+  const termos = validarAssuntos(assuntos.join(','));
+  if (!emails.length && !termos.length) throw new Error('remetentes');
+  const filtros = [...emails.map(x => `from:${x}`), ...termos.map(t => `subject:"${t}"`)];
+  return `{${filtros.join(' ')}} has:attachment filename:pdf after:${Math.floor(Date.parse(desde)/1000)} before:${Math.floor(Date.parse(ate)/1000)}`;
 }
 export type Parte = { partId?: string; filename?: string; mimeType?: string; body?: { attachmentId?: string; data?: string; size?: number }; parts?: Parte[] };
 export function anexosPdf(p: Parte): Parte[] {

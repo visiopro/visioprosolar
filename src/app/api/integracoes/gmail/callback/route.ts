@@ -27,7 +27,7 @@ export async function GET(req:NextRequest) {
   if(atual?.lock_ate&&Date.parse(atual.lock_ate)>Date.now()) return retorno('ocupado');
   const email=perfil.emailAddress.toLowerCase();
   // Troca de caixa: reinicia a busca. Não reutiliza cursores de outra conta.
-  const reset=atual?.email!==email?{remetentes:[],buscar_desde:new Date(Date.now()-60*86400000).toISOString(),janela_fim:null,pagina:null,ultima_sincronizacao:null}:{};
+  const reset=atual?.email!==email?{remetentes:[],assuntos:[],buscar_desde:new Date(Date.now()-60*86400000).toISOString(),janela_fim:null,pagina:null,ultima_sincronizacao:null}:{};
   const {error:e}=await db.from('gmail_conexoes').upsert({usina_id:usina.id,email,refresh_token_enc:cifrar(token.refresh_token,usina.id),ativa:true,erro:null,conectada_em:new Date().toISOString(),...reset},{onConflict:'usina_id'});
   if(e) return retorno(e.code==='23505'?'outra_usina':'falha');
   return retorno('conectado');

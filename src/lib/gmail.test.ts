@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
-import {cifrar,decifrar,iguais,validarRemetentes,consultaGmail,anexosPdf,ehPdf,pdfProtegido,hash} from './gmail/seguranca.ts';
+import {cifrar,decifrar,iguais,validarRemetentes,validarAssuntos,assuntoConfere,consultaGmail,anexosPdf,ehPdf,pdfProtegido,hash} from './gmail/seguranca.ts';
 
 test('Gmail: credencial cifrada só abre com a chave e usina corretas',()=>{
  const key=randomBytes(32), token=cifrar('refresh-token-ficticio','usina-a',key);
@@ -32,4 +32,16 @@ test('Gmail: valida assinatura PDF e reconhece criptografia',()=>{
  assert.ok(!ehPdf(Buffer.from('<html>falha</html>')));
  assert.ok(!pdfProtegido(Buffer.from('%PDF-1.7\n/EncryptedWord\n%%EOF')));
  assert.equal(hash(pdf),hash(Buffer.from(pdf)));assert.notEqual(hash(pdf),hash(Buffer.from('outro')));
+});
+test('Gmail: filtro por assunto, sozinho ou junto com remetente',()=>{
+ assert.deepEqual(validarAssuntos('Conta de energia, coelba'),['Conta de energia','coelba']);
+ for(const v of ['ab','x" OR in:anywhere','{a}','OR','a:b']) assert.throws(()=>validarAssuntos(v));
+ const q=consultaGmail([],'2026-10-01T00:00:00Z','2026-10-02T00:00:00Z',['Conta de energia']);
+ assert.match(q,/^\{subject:"Conta de energia"\} has:attachment filename:pdf/);
+ const q2=consultaGmail(['contas@example.com'],'2026-10-01T00:00:00Z','2026-10-02T00:00:00Z',['coelba']);
+ assert.match(q2,/^\{from:contas@example.com subject:"coelba"\}/);
+ assert.throws(()=>consultaGmail([],'2026-10-01T00:00:00Z','2026-10-02T00:00:00Z',[]));
+ assert.ok(assuntoConfere('Fwd: CONTA DE ENERGIA - outubro','conta de energia'.split(',')));
+ assert.ok(assuntoConfere('Sua fatura Coelba chegou',['coelba']));
+ assert.ok(!assuntoConfere('Promoção',['coelba']));
 });

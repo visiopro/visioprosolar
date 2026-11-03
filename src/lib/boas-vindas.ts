@@ -9,7 +9,7 @@ Ela ainda pode vir com o valor cheio, porque o desconto só começa depois que a
 
 📅 *Como vai funcionar*
 - O vencimento continua o mesmo de sempre.
-- Perto da data, você recebe aqui no WhatsApp o demonstrativo do consumo, o valor a pagar e a chave Pix.
+- Perto da data, você recebe aqui no WhatsApp o demonstrativo do consumo, o valor a pagar e o código Pix para pagamento.
 - Nada muda no seu dia a dia: a energia é a mesma, só o valor fica menor.
 
 📱 *Suas faturas, quando quiser*

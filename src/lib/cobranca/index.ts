@@ -54,7 +54,8 @@ export async function cobrar(supabase: SupabaseClient, usina: Usina, faturaId: s
 
   const c = f.clientes as unknown as { id: string; nome: string; documento: string | null; whatsapp: string | null; email: string | null; uc: string; asaas_customer_id: string | null };
   const doc = soDigitos(c.documento ?? "");
-  if (doc.length !== 11 && doc.length !== 14) return { erro: `Cadastre o CPF ou CNPJ de ${c.nome} para cobrar automaticamente.` };
+  // Asaas exige CPF/CNPJ do cliente; o PIX do Mercado Pago não
+  if (gateway.nome === "asaas" && doc.length !== 11 && doc.length !== 14) return { erro: `Cadastre o CPF ou CNPJ de ${c.nome} para cobrar automaticamente.` };
   const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
   if (f.vencimento < hoje) return { erro: "O vencimento já passou. Cancele e reemita com nova data." };
 

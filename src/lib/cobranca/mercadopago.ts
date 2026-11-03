@@ -104,7 +104,10 @@ export function gatewayMercadoPago(token: string, urlNotificacao: string): Gatew
             email: d.cliente.email || `cliente-${d.cliente.uc}@solar.visiopro.app.br`,
             first_name: nome,
             last_name: resto.join(" ") || nome,
-            identification: { type: d.cliente.documento.length === 14 ? "CNPJ" : "CPF", number: d.cliente.documento },
+            // PIX não exige documento do pagador; quando o cliente tem CPF/CNPJ, vai junto
+            ...(d.cliente.documento.length === 11 || d.cliente.documento.length === 14
+              ? { identification: { type: d.cliente.documento.length === 14 ? "CNPJ" : "CPF", number: d.cliente.documento } }
+              : {}),
           },
         },
         `fatura-${d.faturaId}`, // mesma fatura nunca gera duas cobranças

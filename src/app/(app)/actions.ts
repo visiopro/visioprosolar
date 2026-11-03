@@ -320,7 +320,8 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
     });
 
     const referencia = `${d.referencia}-01`;
-    const pix = gerarPix({
+    // Cobrança automática ligada: o PIX vem da cobrança; a chave fixa não é usada
+    const pix = usina.gateway !== "nenhum" ? null : gerarPix({
       chave: usina.pix_chave ?? "",
       favorecido: usina.pix_favorecido ?? "",
       cidade: usina.pix_cidade ?? "",
@@ -408,7 +409,7 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
     let aviso: string | undefined;
     if (usina.gateway !== "nenhum") {
       const c = await cobrar(supabase, usina, fatura.id);
-      if (c.erro) aviso = `Fatura emitida, mas a cobrança no ${NOMES_GATEWAY[usina.gateway]} não foi criada: ${c.erro}`;
+      if (c.erro) aviso = `Fatura emitida, mas a cobrança no ${NOMES_GATEWAY[usina.gateway]} não foi criada: ${c.erro} Corrija e clique em "Gerar cobrança automática" antes de enviar.`;
     }
     // envio automático no WhatsApp (depois da cobrança, para já sair com o PIX dinâmico)
     let enviada = false;
@@ -570,7 +571,10 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
   // Faturas pendentes com PIX próprio (sem cobrança no Asaas/Mercado Pago) passam a usar a chave nova
   let regeradas = 0;
   const pixMudou = pixChave !== (usina.pix_chave ?? "") || favorecido !== (usina.pix_favorecido ?? "") || cidade !== (usina.pix_cidade ?? "");
-  if (pixMudou || pixChave) {
+  if (usina.gateway !== "nenhum") {
+    // Cobrança automática: tira a chave fixa das faturas pendentes que ainda não têm cobrança
+    await supabase.from("faturas").update({ pix_copia_cola: null }).eq("usina_id", usina.id).eq("status", "pendente").is("cobranca_id", null);
+  } else if (pixMudou || pixChave) {
     const { data: pendentes } = await supabase
       .from("faturas")
       .select("id, referencia, total_centavos, pix_copia_cola, snapshot")
@@ -723,8 +727,23 @@ export async function salvarCobranca(_: Estado, form: FormData): Promise<Estado>
     console.error("salvar cobrança", error);
     return { erro: `Conexão OK, mas não foi possível salvar: ${error.message}. Confira se a migração 0007 foi rodada.` };
   }
+  // Faturas pendentes sem cobrança ganham a cobrança agora (PIX que dá baixa sozinho) e perdem a chave fixa
+  let criadas = 0;
+  const falhas: string[] = [];
+  if (gateway !== "nenhum") {
+    await supabase.from("faturas").update({ pix_copia_cola: null }).eq("usina_id", usina.id).eq("status", "pendente").is("cobranca_id", null);
+    const { data: pendentes } = await supabase.from("faturas").select("id, numero").eq("usina_id", usina.id).eq("status", "pendente").is("cobranca_id", null).limit(30);
+    const novaUsina = { ...usina, gateway } as Usina;
+    for (const p of pendentes ?? []) {
+      const r = await cobrar(supabase, novaUsina, p.id);
+      if (r.erro) falhas.push(`nº ${p.numero}: ${r.erro}`);
+      else criadas++;
+    }
+  }
   revalidatePath("/", "layout");
-  return { ok: gateway === "nenhum" ? "Cobrança automática desligada." : `${conectado} conectado. As próximas faturas já saem com cobrança.` };
+  if (gateway === "nenhum") return { ok: "Cobrança automática desligada." };
+  const extra = [criadas ? ` Cobrança criada em ${criadas} fatura(s) pendente(s).` : "", falhas.length ? ` Sem cobrança: ${falhas.slice(0, 3).join("; ")}${falhas.length > 3 ? "…" : ""}` : ""].join("");
+  return { ok: `${conectado} conectado. As próximas faturas já saem com cobrança.${extra}` };
 }
 
 // ------------------------------------------------------------------ financeiro

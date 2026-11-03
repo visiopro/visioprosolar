@@ -4,7 +4,8 @@ import { gerarPdfFatura, type DadosFaturaPdf } from "./pdf/fatura";
 import { brl, data, mesExtenso, mesRef, nFatura } from "./format";
 import { enviarDocumento, enviarTexto, usaWhatsAppOficial, whatsappDisponivel } from "./whatsapp";
 import type { Usina } from "./usina";
-import { segredos } from "./cobranca";
+import { cobrar, segredos } from "./cobranca";
+import { pixDaFatura } from "./pix";
 import { recebedorMercadoPago } from "./cobranca/mercadopago";
 import { supabaseAdmin } from "./supabase/admin";
 import { anexarContaOriginal } from "./pdf/anexar-conta";
@@ -24,7 +25,7 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
   const acumulada = (anteriores ?? []).reduce((soma, r) => soma + Number(r.economia_centavos), 0);
 
   const [{ data: u }, { data: cli }] = await Promise.all([
-    supabase.from("usinas").select("logo_path, contato_whatsapp, recebedor_nome, recebedor_documento, pix_favorecido, pix_documento, documento").eq("id", f.usina_id).maybeSingle(),
+    supabase.from("usinas").select("logo_path, contato_whatsapp, recebedor_nome, recebedor_documento, pix_favorecido, pix_documento, documento, gateway").eq("id", f.usina_id).maybeSingle(),
     supabase.from("clientes").select("portal_token").eq("id", f.cliente_id).maybeSingle(),
   ]);
   // logo: a gravada na emissão; faturas antigas usam a logo atual da usina
@@ -52,6 +53,7 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     economia_acumulada_centavos: acumulada,
     contato_whatsapp: (u?.contato_whatsapp as string | null) ?? null,
     portal_url: cli?.portal_token ? linkPortal(cli.portal_token as string) : null,
+    pix_copia_cola: pixDaFatura(f, u?.gateway as string | undefined),
     // PIX fixo: titular da chave cadastrado em Ajustes
     recebedor: u?.pix_favorecido
       ? { nome: String(u.pix_favorecido), documento: (u.pix_documento as string | null) || (u.documento as string | null) || null }
@@ -104,6 +106,14 @@ export async function enviarFaturaPorWhatsapp(supabase: SupabaseClient, usina: U
   if (!whatsappDisponivel(usina.whatsapp_instancia, "fatura")) {
     return { erro: usaWhatsAppOficial() ? "O número oficial da VisioPro ou o modelo de fatura ainda não está configurado." : "WhatsApp da usina não conectado. Fale com a VisioPro." };
   }
+  // Cobrança automática ligada: a fatura só sai com o PIX da cobrança (que dá baixa sozinho)
+  if (usina.gateway !== "nenhum") {
+    const { data: atual } = await supabase.from("faturas").select("status, cobranca_id").eq("id", faturaId).maybeSingle();
+    if (atual?.status === "pendente" && !atual.cobranca_id) {
+      const c = await cobrar(supabase, usina, faturaId);
+      if (c.erro) return { erro: `A cobrança não foi criada, então a fatura não foi enviada: ${c.erro}` };
+    }
+  }
   const r = await pdfDaFatura(supabase, faturaId);
   if (!r) return { erro: "Fatura não encontrada." };
   if (r.fatura.status === "cancelada") return { erro: "Fatura cancelada não pode ser enviada." };
@@ -125,13 +135,14 @@ export async function enviarFaturaPorWhatsapp(supabase: SupabaseClient, usina: U
         referencia: mesExtenso(r.fatura.referencia),
         valor: brl(Number(r.fatura.total_centavos)),
         vencimento: data(r.fatura.vencimento),
-        pix: r.fatura.status === "pendente" ? r.fatura.pix_copia_cola ?? "" : "",
+        pix: r.fatura.status === "pendente" ? pixDaFatura(r.fatura, usina.gateway) ?? "" : "",
       },
       token,
     });
     // PIX em mensagem separada: no WhatsApp o cliente copia com um toque
-    if (!usaWhatsAppOficial() && r.fatura.pix_copia_cola && r.fatura.status === "pendente") {
-      await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto: r.fatura.pix_copia_cola, usinaNome: usina.nome, token });
+    const pixEnvio = pixDaFatura(r.fatura, usina.gateway);
+    if (!usaWhatsAppOficial() && pixEnvio && r.fatura.status === "pendente") {
+      await enviarTexto({ instancia: usina.whatsapp_instancia, numero: cliente.whatsapp, texto: pixEnvio, usinaNome: usina.nome, token });
     }
   } catch (e) {
     return { erro: e instanceof Error ? e.message : "Falha no envio pelo WhatsApp." };

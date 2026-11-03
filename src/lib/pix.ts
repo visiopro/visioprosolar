@@ -66,6 +66,15 @@ export function normalizarChavePix(bruta: string): { chave: string; tipo: "cpf" 
   return null;
 }
 
+/**
+ * PIX que pode ir para o cliente. Com cobrança automática ligada, só o PIX da cobrança
+ * (que dá baixa sozinho); a chave fixa da usina nunca aparece.
+ */
+export function pixDaFatura(f: { pix_copia_cola: string | null; cobranca_id?: string | null }, gateway: string | null | undefined) {
+  if (gateway && gateway !== "nenhum" && !f.cobranca_id) return null;
+  return f.pix_copia_cola;
+}
+
 export function gerarPix(p: { chave: string; favorecido: string; cidade: string; centavos: number; txid?: string }) {
   if (!p.chave || !p.favorecido || !p.cidade) return null;
   const chave = normalizarChavePix(p.chave)?.chave ?? p.chave.trim();

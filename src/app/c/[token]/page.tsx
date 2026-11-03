@@ -1,3 +1,4 @@
+import { pixDaFatura } from "@/lib/pix";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -23,22 +24,23 @@ export default async function Portal({ params }: { params: Promise<{ token: stri
 
   const { data: cliente } = await admin
     .from("clientes")
-    .select("id, nome, uc, distribuidora, usina_id, usinas(nome, logo_path, contato_whatsapp)")
+    .select("id, nome, uc, distribuidora, usina_id, usinas(nome, logo_path, contato_whatsapp, gateway)")
     .eq("portal_token", token)
     .maybeSingle();
   if (!cliente) notFound();
-  const usina = cliente.usinas as unknown as { nome: string; logo_path: string | null; contato_whatsapp: string | null };
+  const usina = cliente.usinas as unknown as { nome: string; logo_path: string | null; contato_whatsapp: string | null; gateway: string | null };
 
   const { data: faturas } = await admin
     .from("faturas")
-    .select("id, numero, referencia, vencimento, status, total_centavos, economia_centavos, sem_usina_centavos, pix_copia_cola, cobranca_link, paga_em, modo_desconto, desconto_valor, compensada_kwh, consumo_kwh, tarifa, bandeira_centavos, iluminacao_centavos, sem_usina_ajustado, valor_conta_centavos")
+    .select("id, numero, referencia, vencimento, status, total_centavos, economia_centavos, sem_usina_centavos, pix_copia_cola, cobranca_id, cobranca_link, paga_em, modo_desconto, desconto_valor, compensada_kwh, consumo_kwh, tarifa, bandeira_centavos, iluminacao_centavos, sem_usina_ajustado, valor_conta_centavos")
     .eq("cliente_id", cliente.id)
     .neq("status", "cancelada")
     .order("referencia", { ascending: false })
     .limit(12);
 
   const hoje = hojeBR();
-  const lista = faturas ?? [];
+  // Cobrança automática ligada: a chave fixa nunca aparece, só o PIX da cobrança
+  const lista = (faturas ?? []).map((f) => ({ ...f, pix_copia_cola: pixDaFatura(f, usina.gateway) }));
   const atual = lista.find((f) => f.status === "pendente") ?? lista[0];
   const economia = lista.reduce((s, f) => s + Number(f.economia_centavos), 0);
   const qr = atual?.status === "pendente" && atual.pix_copia_cola ? await QRCode.toDataURL(atual.pix_copia_cola, { margin: 1, width: 360 }) : null;

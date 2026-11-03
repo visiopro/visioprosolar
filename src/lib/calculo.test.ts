@@ -59,3 +59,10 @@ test("normaliza chave PIX para o formato do DICT", () => {
   const p = gerarPix({ chave: "(77) 99812-3456", favorecido: "Usina", cidade: "Conquista", centavos: 100 })!;
   assert.ok(p.includes("0114+5577998123456"));
 });
+
+import { pixDaFatura } from "./pix.ts";
+test("com cobrança automática a chave fixa nunca vai para o cliente", () => {
+  assert.equal(pixDaFatura({ pix_copia_cola: "fixo", cobranca_id: null }, "mercadopago"), null);
+  assert.equal(pixDaFatura({ pix_copia_cola: "dinamico", cobranca_id: "123" }, "mercadopago"), "dinamico");
+  assert.equal(pixDaFatura({ pix_copia_cola: "fixo", cobranca_id: null }, "nenhum"), "fixo");
+});

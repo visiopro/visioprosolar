@@ -1,3 +1,4 @@
+import { pixDaFatura } from "@/lib/pix";
 import { notFound } from "next/navigation";
 import { contexto } from "@/lib/usina";
 
@@ -134,7 +135,7 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
         <AcoesFatura
           id={f.id}
           status={f.status}
-          pix={f.pix_copia_cola}
+          pix={pixDaFatura(f, usina.gateway)}
           podeEnviar={whatsappDisponivel(usina.whatsapp_instancia, "fatura") && !!whats}
           urlConta={urlConta ?? null}
           gatewayAtivo={usina.gateway !== "nenhum"}

@@ -1,3 +1,4 @@
+import { pixDaFatura } from "@/lib/pix";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { enviarTexto, usaWhatsAppOficial, whatsappDisponivel } from "@/lib/whatsapp";
 import { segredos } from "@/lib/cobranca";
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
   const hoje = hojeBR();
   const { data: faturas, error } = await admin
     .from("faturas")
-    .select("id, usina_id, referencia, vencimento, total_centavos, pix_copia_cola, cobranca_gateway, cobranca_link, snapshot, clientes(whatsapp), usinas(whatsapp_instancia, nome, asaas_notificar)")
+    .select("id, usina_id, referencia, vencimento, total_centavos, pix_copia_cola, cobranca_id, cobranca_gateway, cobranca_link, snapshot, clientes(whatsapp), usinas(whatsapp_instancia, nome, asaas_notificar, gateway)")
     .eq("status", "pendente")
     .is("lembrete_em", null)
     .in("vencimento", [somarDias(hoje, 2), somarDias(hoje, -1)]);
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
   const falhas: string[] = [];
   for (const f of faturas ?? []) {
     const cliente = f.clientes as unknown as { whatsapp: string | null } | null;
-    const usina = f.usinas as unknown as { whatsapp_instancia: string | null; nome: string; asaas_notificar: boolean } | null;
+    const usina = f.usinas as unknown as { whatsapp_instancia: string | null; nome: string; asaas_notificar: boolean; gateway: string | null } | null;
     if (!cliente?.whatsapp || !usina || !whatsappDisponivel(usina.whatsapp_instancia, "texto")) continue;
     // o Asaas já avisa esse cliente: evita mensagem duplicada
     if (f.cobranca_gateway === "asaas" && usina.asaas_notificar) continue;
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
         ? `Olá, ${nome}. A fatura de energia solar de ${mesRef(f.referencia)} da ${usina.nome} venceu em ${data(f.vencimento)} e ainda consta em aberto.`
         : `Olá, ${nome}! Lembrete: a fatura de energia solar de ${mesRef(f.referencia)} da ${usina.nome} vence em ${data(f.vencimento)}.`,
       `Valor: ${brl(Number(f.total_centavos))}`,
-      f.pix_copia_cola ? `\nPIX copia e cola:\n${f.pix_copia_cola}` : "",
+      pixDaFatura(f, usina.gateway) ? `\nPIX copia e cola:\n${pixDaFatura(f, usina.gateway)}` : "",
       f.cobranca_link ? `\nPágina de pagamento: ${f.cobranca_link}` : "",
       `\nSe já pagou, desconsidere esta mensagem.`,
     ].join("\n");

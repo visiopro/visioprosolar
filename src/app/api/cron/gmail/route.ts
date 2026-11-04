@@ -1,12 +1,15 @@
 import {supabaseAdmin} from '@/lib/supabase/admin';
 import {iguais} from '@/lib/gmail/seguranca';
 import {sincronizar,lerImportada} from '@/lib/gmail/sync';
+import {monitorarWhatsapp} from '@/lib/monitor-whatsapp';
 export const runtime='nodejs';
 export const maxDuration=300;
 export async function GET(req:Request) {
  const segredo=process.env.CRON_SECRET;
  if(!segredo||segredo.length<16||!iguais(req.headers.get('authorization')??'',`Bearer ${segredo}`)) return new Response('Não autorizado',{status:401});
  const db=supabaseAdmin(),inicio=Date.now();
+ // antes de emitir/enviar: confere se o WhatsApp das usinas está conectado (tenta reiniciar e avisa se não)
+ const whatsapp=await monitorarWhatsapp().catch(()=>[]);
  const {data,error}=await db.from('gmail_conexoes').select('usina_id').eq('ativa',true).order('ultima_tentativa',{ascending:true,nullsFirst:true}).limit(20);
  if(error) return Response.json({erro:'Verifique a migração 0019.'},{status:500});
  let processadas=0,falhas=0;
@@ -28,5 +31,5 @@ export async function GET(req:Request) {
    processadas++;
   }catch{falhas++;}
  }
- return Response.json({processadas,falhas});
+ return Response.json({processadas,falhas,whatsapp});
 }

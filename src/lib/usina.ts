@@ -13,6 +13,7 @@ export type Usina = {
   pix_documento?: string | null;
   encargos_ativos?: boolean;
   emissao_automatica?: boolean;
+  whatsapp_estado?: string | null;
   encargos_desde?: string | null;
   multa_percentual?: number;
   juros_mensal?: number;

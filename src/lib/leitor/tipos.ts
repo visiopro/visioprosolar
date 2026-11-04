@@ -6,6 +6,7 @@ export type LeituraConta = {
   referencia: string | null;          // AAAA-MM
   distribuidora: string | null;
   titular: string | null;
+  endereco?: string | null;           // endereço da unidade consumidora
   consumo_kwh: number | null;          // consumo REAL do mês (leitura atual − anterior × constante)
   consumo_faturado_kwh: number | null; // o que a distribuidora cobrou (com créditos, fica menor que o real)
   compensada_kwh: number | null;
@@ -86,6 +87,7 @@ export function normalizarLeitura(bruto: Record<string, unknown>): LeituraConta 
     referencia: ref && /^\d{4}-(0[1-9]|1[0-2])$/.test(ref) ? ref : null,
     distribuidora: textoOuNulo(bruto.distribuidora, 80),
     titular: textoOuNulo(bruto.titular),
+    endereco: textoOuNulo(bruto.endereco, 160),
     consumo_kwh: consumoReal(bruto),
     consumo_faturado_kwh: numeroOuNulo(bruto.consumo_kwh),
     compensada_kwh: numeroOuNulo(bruto.compensada_kwh),

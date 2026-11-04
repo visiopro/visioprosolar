@@ -104,7 +104,7 @@ export async function lerImportada(usinaId:string,contaId:string) {
   if(pdfProtegido(new Uint8Array(bytes))) {await atualizar({importacao_status:'protegida',importacao_erro:'PDF protegido por senha. Abra o original e confira manualmente.'});return {erro:'PDF protegido por senha.'};}
   const leitura=await leitor.ler({bytes,tipo:'application/pdf'});
   const cliente=leitura.uc?await db.from('clientes').select('id').eq('usina_id',usinaId).eq('ativo',true).eq('uc',leitura.uc).maybeSingle():{data:null,error:null};conferirErro(cliente.error);
-  const clienteId=cliente.data?.id??(leitura.uc&&leitura.titular?await cadastrarClienteDaConta(db,usinaId,leitura.uc,leitura.titular,leitura.distribuidora):null);
+  const clienteId=cliente.data?.id??(leitura.uc&&leitura.titular?await cadastrarClienteDaConta(db,usinaId,leitura.uc,leitura.titular,leitura.distribuidora,leitura.endereco??null):null);
   await atualizar({leitura_ia:leitura,cliente_id:clienteId,uc:leitura.uc,referencia:leitura.referencia?`${leitura.referencia}-01`:null,importacao_status:'pronta',importacao_erro:null});
   return {ok:'Leitura concluída. Confira os dados antes de emitir.'};
  }catch{
@@ -117,7 +117,7 @@ export async function lerImportada(usinaId:string,contaId:string) {
  * UC ainda não cadastrada: cria o cliente com o nome do titular da conta e a mesma regra de cobrança
  * mais usada pelos clientes da usina. Fica marcado como cadastro automático para completar o WhatsApp depois.
  */
-async function cadastrarClienteDaConta(db:ReturnType<typeof supabaseAdmin>,usinaId:string,uc:string,titular:string,distribuidora:string|null):Promise<string|null> {
+async function cadastrarClienteDaConta(db:ReturnType<typeof supabaseAdmin>,usinaId:string,uc:string,titular:string,distribuidora:string|null,endereco:string|null):Promise<string|null> {
  const {data:existentes}=await db.from('clientes').select('id, uc, ativo, modo_desconto, desconto_valor, cip_modo, cip_valor, cip_tabela_id, cip_classe, distribuidora').eq('usina_id',usinaId).order('created_at',{ascending:false}).limit(200);
  if(existentes?.some(c=>c.uc===uc)) return null; // UC de cliente inativo: não recria
  const contagem=new Map<string,{n:number;c:NonNullable<typeof existentes>[number]}>();
@@ -127,7 +127,8 @@ async function cadastrarClienteDaConta(db:ReturnType<typeof supabaseAdmin>,usina
  }
  const modelo=[...contagem.values()].sort((a,b)=>b.n-a.n)[0]?.c;
  const linha={
-  usina_id:usinaId,nome:titular.slice(0,120),uc,
+  // conta cheia: a conta vem no nome da usina (titular = dono), então o nome real do cliente não está nela
+  usina_id:usinaId,nome:(modelo?.modo_desconto==='percentual_conta_cheia'?`UC ${uc}${endereco?` · ${endereco}`:''}`:titular).slice(0,120),uc,
   distribuidora:modelo?.distribuidora??(distribuidora||'Coelba (Neoenergia)'),
   modo_desconto:modelo?.modo_desconto??'percentual_conta_cheia',desconto_valor:modelo?.desconto_valor??20,
   cip_modo:modelo?.cip_modo??'da_conta',cip_valor:modelo?.cip_valor??0,cip_tabela_id:modelo?.cip_tabela_id??null,cip_classe:modelo?.cip_classe??null,
@@ -139,6 +140,6 @@ async function cadastrarClienteDaConta(db:ReturnType<typeof supabaseAdmin>,usina
   if(novo.error.code==='23505') {const j=await db.from('clientes').select('id').eq('usina_id',usinaId).eq('uc',uc).eq('ativo',true).maybeSingle();return j.data?.id??null;}
   return null;
  }
- await db.from('eventos').insert({usina_id:usinaId,acao:'cliente_automatico',alvo_id:novo.data.id,detalhes:{uc,titular}});
+ await db.from('eventos').insert({usina_id:usinaId,acao:'cliente_automatico',alvo_id:novo.data.id,detalhes:{uc,titular,endereco}});
  return novo.data.id;
 }

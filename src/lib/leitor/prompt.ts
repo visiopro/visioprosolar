@@ -9,6 +9,7 @@ Responda SOMENTE com um objeto JSON, sem texto antes ou depois, neste formato:
   "referencia": "AAAA-MM" | null,    // mês de referência (REF: MÊS/ANO)
   "distribuidora": string | null,
   "titular": string | null,
+  "endereco": string | null,         // endereço da unidade consumidora (rua, número, bairro, cidade), como está na conta
   "leitura_anterior": number | null, // quadro do MEDIDOR, coluna "LEITURA ANTERIOR" (ex.: "5.568,00" -> 5568)
   "leitura_atual": number | null,    // quadro do MEDIDOR, coluna "LEITURA ATUAL"
   "constante_medidor": number | null,// quadro do MEDIDOR, coluna "CONST. MEDIDOR" (normalmente 1)

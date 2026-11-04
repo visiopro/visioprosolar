@@ -1,3 +1,4 @@
+import { validarLinhaArrecadacao } from "../boleto.ts";
 import { corBandeira, estimarBandeira, fatorTributos, BANDEIRAS, type CorBandeira } from "./bandeira.ts";
 
 /** O que o leitor devolve. Tudo pode vir nulo: nada é inventado. */
@@ -16,6 +17,7 @@ export type LeituraConta = {
   iluminacao_publica: number | null;  // R$
   valor_conta: number | null;         // R$
   vencimento_conta: string | null;    // AAAA-MM-DD
+  codigo_barras?: string | null;      // linha digitável (48 dígitos, DVs conferidos)
   duvidosos: string[];                // campos que precisam de atenção na conferência
   observacoes: string | null;
 };
@@ -97,6 +99,7 @@ export function normalizarLeitura(bruto: Record<string, unknown>): LeituraConta 
     iluminacao_publica: numeroOuNulo(bruto.iluminacao_publica),
     valor_conta: numeroOuNulo(bruto.valor_conta),
     vencimento_conta: venc && /^\d{4}-\d{2}-\d{2}$/.test(venc) ? venc : null,
+    codigo_barras: typeof bruto.codigo_barras === "string" ? validarLinhaArrecadacao(bruto.codigo_barras) : null,
     duvidosos,
     observacoes: textoOuNulo(bruto.observacoes, 400),
   };

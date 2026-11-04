@@ -8,6 +8,7 @@ import { enviarFaturaPorWhatsapp } from "./faturas";
 import { whatsappDisponivel } from "./whatsapp";
 import { cobrar, NOMES_GATEWAY } from "./cobranca";
 import { normalizarUC } from "./leitor/tipos";
+import { registrarContaAPagar } from "./contas-pagar";
 import { calcularEncargo, totalEncargos, type EncargoAtraso } from "./encargos";
 
 export type DadosEmissao = {
@@ -174,17 +175,20 @@ export async function emitirFaturaDaConta(
     }
     await supabase.from("eventos").insert({ usina_id: usina.id, acao: "fatura_emitida", alvo_id: fatura.id, detalhes: { total: totalComEncargos, referencia, ajustado: ajustado !== null, encargos: valorEncargos || undefined, automatica: userId === null || undefined } });
 
-    // Conta no nome da usina: vira conta a pagar no financeiro
+    // Conta no nome da usina: vira (ou atualiza) a conta a pagar no financeiro, com o código de barras
     if (modo === "percentual_conta_cheia" && valorConta > 0) {
       const venc = /^\d{4}-\d{2}-\d{2}$/.test(d.vencimentoConta) ? d.vencimentoConta : d.vencimento;
-      await supabase.from("despesas").insert({
-        usina_id: usina.id,
-        descricao: `Conta ${cliente.distribuidora.split(" ")[0]} · ${cliente.nome} · ${d.referencia.split("-").reverse().join("/")}`,
-        categoria: "conta_distribuidora",
-        valor_centavos: valorConta,
+      const { data: contaInfo } = await supabase.from("contas_energia").select("codigo_barras, leitura_ia").eq("id", d.contaId).maybeSingle();
+      const codigo = (contaInfo?.codigo_barras as string | null) ?? ((contaInfo?.leitura_ia as { codigo_barras?: string | null } | null)?.codigo_barras ?? null);
+      await registrarContaAPagar(supabase, {
+        usinaId: usina.id,
+        contaId: d.contaId,
+        cliente: { id: cliente.id, nome: cliente.nome, distribuidora: cliente.distribuidora },
+        referencia: d.referencia,
+        valorCentavos: valorConta,
         vencimento: venc,
-        cliente_id: cliente.id,
-        fatura_id: fatura.id,
+        codigoBarras: codigo,
+        faturaId: fatura.id,
       });
     }
 

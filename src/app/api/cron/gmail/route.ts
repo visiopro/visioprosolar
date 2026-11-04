@@ -1,6 +1,6 @@
 import {supabaseAdmin} from '@/lib/supabase/admin';
 import {iguais} from '@/lib/gmail/seguranca';
-import {sincronizar,lerImportada} from '@/lib/gmail/sync';
+import {sincronizar,lerImportada,completarCodigos} from '@/lib/gmail/sync';
 import {monitorarWhatsapp} from '@/lib/monitor-whatsapp';
 export const runtime='nodejs';
 export const maxDuration=300;
@@ -28,6 +28,7 @@ export async function GET(req:Request) {
     const resultados=await Promise.allSettled(contas.map(conta=>lerImportada(c.usina_id,conta.id)));
     falhas+=resultados.filter(r=>r.status==='rejected'||r.value.erro).length;
    }
+   await completarCodigos(c.usina_id).catch(()=>0);
    processadas++;
   }catch{falhas++;}
  }

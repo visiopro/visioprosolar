@@ -2,6 +2,8 @@ import 'server-only';
 import {supabaseAdmin} from '@/lib/supabase/admin';
 import {obterLeitor} from '@/lib/leitor';
 import {emitirAutomatico} from '@/lib/emissao-auto';
+import {acharLinhaNoTexto} from '@/lib/boleto';
+import {registrarContaAPagar} from '@/lib/contas-pagar';
 import {desbloquearPdf,senhasDaUsina} from '@/lib/pdf-senha';
 import {gmail,tokenGoogle,ErroGoogle} from './api';
 import {decifrar,consultaGmail,assuntoConfere,anexosPdf,hash,ehPdf,pdfProtegido,type Parte} from './seguranca';
@@ -104,9 +106,17 @@ export async function lerImportada(usinaId:string,contaId:string) {
   }
   if(pdfProtegido(new Uint8Array(bytes))) {await atualizar({importacao_status:'protegida',importacao_erro:'PDF protegido por senha. Abra o original e confira manualmente.'});return {erro:'PDF protegido por senha.'};}
   const leitura=await leitor.ler({bytes,tipo:'application/pdf'});
+  // código de barras: o texto do próprio PDF é exato; a leitura da IA fica de reserva (as duas passam pelos dígitos verificadores)
+  const valorCentavos=leitura.valor_conta!==null?Math.round(leitura.valor_conta*100):null;
+  leitura.codigo_barras=(await textoDoPdf(new Uint8Array(bytes)).then(t=>acharLinhaNoTexto(t,valorCentavos)).catch(()=>null))??leitura.codigo_barras??null;
   const cliente=leitura.uc?await db.from('clientes').select('id').eq('usina_id',usinaId).eq('ativo',true).eq('uc',leitura.uc).maybeSingle():{data:null,error:null};conferirErro(cliente.error);
   const clienteId=cliente.data?.id??(leitura.uc&&leitura.titular?await cadastrarClienteDaConta(db,usinaId,leitura.uc,leitura.titular,leitura.distribuidora,leitura.endereco??null):null);
-  await atualizar({leitura_ia:leitura,cliente_id:clienteId,uc:leitura.uc,referencia:leitura.referencia?`${leitura.referencia}-01`:null,importacao_status:'pronta',importacao_erro:null});
+  await atualizar({leitura_ia:leitura,cliente_id:clienteId,uc:leitura.uc,referencia:leitura.referencia?`${leitura.referencia}-01`:null,codigo_barras:leitura.codigo_barras,importacao_status:'pronta',importacao_erro:null});
+  // conta no nome da usina: já entra em "A pagar" do financeiro, com o código de barras, mesmo antes de virar fatura
+  if(clienteId&&valorCentavos&&leitura.vencimento_conta&&leitura.referencia) {
+   const {data:cli}=await db.from('clientes').select('id, nome, distribuidora, modo_desconto').eq('id',clienteId).maybeSingle();
+   if(cli?.modo_desconto==='percentual_conta_cheia') await registrarContaAPagar(db,{usinaId,contaId,cliente:cli,referencia:leitura.referencia,valorCentavos,vencimento:leitura.vencimento_conta,codigoBarras:leitura.codigo_barras??null}).catch(()=>{});
+  }
   // usina com emissão automática: conta limpa já vira fatura e vai para o cliente
   const auto=await emitirAutomatico(usinaId,contaId).catch(()=>({motivo:'falha na emissão automática.'}));
   if('id' in auto&&auto.id) return {ok:'Leitura concluída e fatura emitida automaticamente.'};
@@ -146,4 +156,45 @@ async function cadastrarClienteDaConta(db:ReturnType<typeof supabaseAdmin>,usina
  }
  await db.from('eventos').insert({usina_id:usinaId,acao:'cliente_automatico',alvo_id:novo.data.id,detalhes:{uc,titular,endereco}});
  return novo.data.id;
+}
+
+/** Texto do PDF (camada de texto das contas digitais), para achar a linha digitável exata */
+async function textoDoPdf(bytes:Uint8Array):Promise<string> {
+ const mupdf=await import('mupdf');
+ const doc=mupdf.Document.openDocument(bytes,'application/pdf');
+ try {
+  let texto='';
+  for(let i=0;i<Math.min(doc.countPages(),3);i++) {const pg=doc.loadPage(i);texto+=pg.toStructuredText('preserve-whitespace').asText()+'\n';pg.destroy();}
+  return texto;
+ } finally {doc.destroy();}
+}
+
+/**
+ * Contas já lidas antes do código de barras existir: tira a linha digitável do PDF e põe na conta a pagar.
+ * Roda junto com a busca de hora em hora, poucas por vez.
+ */
+export async function completarCodigos(usinaId:string,limite=15) {
+ const db=supabaseAdmin();
+ const {data:contas}=await db.from('contas_energia').select('id, arquivo_path, arquivo_tipo, leitura_ia, cliente_id').eq('usina_id',usinaId).is('codigo_barras',null).eq('arquivo_tipo','application/pdf').not('leitura_ia','is',null).gte('created_at',new Date(Date.now()-60*86400000).toISOString()).order('created_at',{ascending:false}).limit(limite);
+ let feitas=0;
+ for(const c of contas??[]) {
+  try {
+   const l=c.leitura_ia as {valor_conta?:number|null;vencimento_conta?:string|null;referencia?:string|null};
+   const arq=await db.storage.from('contas').download(c.arquivo_path);
+   if(!arq.data) continue;
+   const valor=l.valor_conta!=null?Math.round(l.valor_conta*100):null;
+   const codigo=await textoDoPdf(new Uint8Array(await arq.data.arrayBuffer())).then(t=>acharLinhaNoTexto(t,valor)).catch(()=>null);
+   // marca como verificada mesmo sem código (string vazia) para não tentar de novo
+   await db.from('contas_energia').update({codigo_barras:codigo??''}).eq('id',c.id);
+   if(!codigo||!c.cliente_id||!valor||!l.vencimento_conta||!l.referencia) continue;
+   const {data:cli}=await db.from('clientes').select('id, nome, distribuidora, modo_desconto').eq('id',c.cliente_id).maybeSingle();
+   if(cli?.modo_desconto!=='percentual_conta_cheia') continue;
+   const {data:desp}=await db.from('despesas').select('id').eq('usina_id',usinaId).eq('categoria','conta_distribuidora').eq('cliente_id',cli.id).eq('valor_centavos',valor).is('conta_id',null).maybeSingle();
+   // conta a pagar antiga (criada na emissão): só completa o código e o vínculo
+   if(desp) await db.from('despesas').update({codigo_barras:codigo,conta_id:c.id}).eq('id',desp.id);
+   else await registrarContaAPagar(db,{usinaId,contaId:c.id,cliente:cli,referencia:l.referencia,valorCentavos:valor,vencimento:l.vencimento_conta,codigoBarras:codigo});
+   feitas++;
+  } catch {/* segue para a próxima */}
+ }
+ return feitas;
 }

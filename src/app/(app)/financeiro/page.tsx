@@ -4,7 +4,7 @@ import { contexto } from "@/lib/usina";
 import { brl, data, hojeBR, mesExtenso, mesRef, somarDias } from "@/lib/format";
 import { CATEGORIAS } from "@/lib/financeiro";
 import { Cartao, Status, cx } from "@/components/ui";
-import { AcoesDespesa, NovaDespesa } from "@/components/financeiro";
+import { AcoesDespesa, CopiarCodigo, NovaDespesa } from "@/components/financeiro";
 import { RelatorioUsina } from "@/components/relatorio-usina";
 import { montarRelatorio, type FaturaRelatorio } from "@/lib/relatorio";
 
@@ -173,6 +173,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
                       {CATEGORIAS[d.categoria]} · {d.vencimento < hoje ? "venceu" : "vence"} {data(d.vencimento)}
                       {d.parcelas ? ` · ${d.parcela}/${d.parcelas}` : ""}
                     </span>
+                    {d.codigo_barras ? <CopiarCodigo codigo={d.codigo_barras} /> : null}
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
                     <span className="font-medium">{brl(Number(d.valor_centavos))}</span>

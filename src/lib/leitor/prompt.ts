@@ -30,6 +30,7 @@ Responda SOMENTE com um objeto JSON, sem texto antes ou depois, neste formato:
   "iluminacao_publica": number | null, // R$ da contribuição de iluminação pública (CIP/COSIP); 0 se não houver
   "valor_conta": number | null,      // TOTAL A PAGAR da conta, em reais
   "vencimento_conta": "AAAA-MM-DD" | null,
+  "codigo_barras": string | null,     // linha digitável do código de barras (48 dígitos, começa com 8), copiada dígito por dígito; null se não estiver legível
   "duvidosos": string[],             // nomes dos campos lidos com baixa certeza
   "observacoes": string | null       // algo que a pessoa deve saber na conferência (ex.: foto cortada, sombra)
 }

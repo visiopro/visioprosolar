@@ -1,6 +1,7 @@
 import 'server-only';
 import {supabaseAdmin} from '@/lib/supabase/admin';
 import {obterLeitor} from '@/lib/leitor';
+import {emitirAutomatico} from '@/lib/emissao-auto';
 import {desbloquearPdf,senhasDaUsina} from '@/lib/pdf-senha';
 import {gmail,tokenGoogle,ErroGoogle} from './api';
 import {decifrar,consultaGmail,assuntoConfere,anexosPdf,hash,ehPdf,pdfProtegido,type Parte} from './seguranca';
@@ -106,6 +107,9 @@ export async function lerImportada(usinaId:string,contaId:string) {
   const cliente=leitura.uc?await db.from('clientes').select('id').eq('usina_id',usinaId).eq('ativo',true).eq('uc',leitura.uc).maybeSingle():{data:null,error:null};conferirErro(cliente.error);
   const clienteId=cliente.data?.id??(leitura.uc&&leitura.titular?await cadastrarClienteDaConta(db,usinaId,leitura.uc,leitura.titular,leitura.distribuidora,leitura.endereco??null):null);
   await atualizar({leitura_ia:leitura,cliente_id:clienteId,uc:leitura.uc,referencia:leitura.referencia?`${leitura.referencia}-01`:null,importacao_status:'pronta',importacao_erro:null});
+  // usina com emissão automática: conta limpa já vira fatura e vai para o cliente
+  const auto=await emitirAutomatico(usinaId,contaId).catch(()=>({motivo:'falha na emissão automática.'}));
+  if('id' in auto&&auto.id) return {ok:'Leitura concluída e fatura emitida automaticamente.'};
   return {ok:'Leitura concluída. Confira os dados antes de emitir.'};
  }catch{
   await atualizar({importacao_status:'erro',importacao_erro:'A leitura automática falhou. Tente novamente ou confira o PDF manualmente.'});

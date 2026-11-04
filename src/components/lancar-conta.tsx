@@ -43,7 +43,7 @@ function bandeiraInicial(l: LeituraConta | null | undefined, padrao: number) {
   return l.consumo_kwh && padrao ? txt(Math.round(l.consumo_kwh * padrao * 100) / 100) : "";
 }
 
-export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | null; vencimentoPadrao: string; whatsappConfigurado: boolean; bandeiraPadrao: number; faixasCip: (FaixaCip & { tabela_id: string })[]; historico: HistoricoCliente[]; contaInicial?: Resposta | null }) {
+export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | null; vencimentoPadrao: string; whatsappConfigurado: boolean; bandeiraPadrao: number; faixasCip: (FaixaCip & { tabela_id: string })[]; historico: HistoricoCliente[]; contaInicial?: Resposta | null; encargosAtivos?: boolean }) {
   const [etapa, setEtapa] = useState<"enviar" | "lendo" | "conferir" | "emitida">(p.contaInicial ? "conferir" : "enviar");
   const [erro, setErro] = useState<string | null>(null);
   const [resp, setResp] = useState<Resposta | null>(p.contaInicial ?? null);
@@ -63,7 +63,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     bandeira: bandeiraInicial(inicial, p.bandeiraPadrao),
     iluminacao: txt(inicial?.iluminacao_publica), valorConta: txt(inicial?.valor_conta),
     semUsinaAjustado: "", vencimentoConta: inicial?.vencimento_conta ?? "",
-    vencimento: p.vencimentoPadrao, confirmado: false,
+    vencimento: p.vencimentoPadrao, confirmado: false, cobrarEncargos: true,
   });
   const [avisoEmissao, setAvisoEmissao] = useState<string | null>(null);
   const [enviadaAuto, setEnviadaAuto] = useState(false);
@@ -206,7 +206,7 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     setErro(null);
     setAjustando(false);
     setCipManual(false);
-    setF({ clienteId: "", uc: "", referencia: "", consumoKwh: "", compensadaKwh: "", tarifa: "", bandeira: "", iluminacao: "", valorConta: "", semUsinaAjustado: "", vencimentoConta: "", vencimento: p.vencimentoPadrao, confirmado: false });
+    setF({ clienteId: "", uc: "", referencia: "", consumoKwh: "", compensadaKwh: "", tarifa: "", bandeira: "", iluminacao: "", valorConta: "", semUsinaAjustado: "", vencimentoConta: "", vencimento: p.vencimentoPadrao, confirmado: false, cobrarEncargos: true });
     setAvisoEmissao(null);
     setEnviadaAuto(false);
   }
@@ -479,6 +479,15 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
           </Campo>
         </Cartao>
 
+        {p.encargosAtivos ? (
+          <label className="flex items-start gap-3 text-sm">
+            <input type="checkbox" checked={f.cobrarEncargos} onChange={set("cobrarEncargos")} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />
+            <span>
+              Cobrar multa e juros de faturas pagas com atraso
+              <span className="block text-xs text-nevoa">O app soma sozinho, ao emitir, o que o cliente deve de atrasos anteriores. Desmarque para perdoar desta vez.</span>
+            </span>
+          </label>
+        ) : null}
         <label className="flex items-start gap-3 text-sm">
           <input type="checkbox" checked={f.confirmado} onChange={set("confirmado")} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />
           Conferi os valores com a conta original.

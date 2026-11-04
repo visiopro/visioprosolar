@@ -11,6 +11,10 @@ export type Usina = {
   pix_favorecido: string | null;
   pix_cidade: string | null;
   pix_documento?: string | null;
+  encargos_ativos?: boolean;
+  encargos_desde?: string | null;
+  multa_percentual?: number;
+  juros_mensal?: number;
   whatsapp_instancia: string | null;
   dias_vencimento: number;
   asaas_ativo: boolean;

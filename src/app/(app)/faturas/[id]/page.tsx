@@ -5,6 +5,7 @@ import { contexto } from "@/lib/usina";
 export const maxDuration = 60;
 import { brl, data, hojeBR, mesExtenso, nFatura, numero } from "@/lib/format";
 import { descreverRegra, type ModoDesconto } from "@/lib/calculo";
+import { descreverEncargo, type EncargoAtraso } from "@/lib/encargos";
 import { Cartao, Status } from "@/components/ui";
 import { AcoesFatura } from "@/components/acoes-fatura";
 import { whatsappDisponivel } from "@/lib/whatsapp";
@@ -64,6 +65,7 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
         ["Sem a usina", brl(semUsina)],
       ];
   linhas.push([descreverRegra(modo, Number(f.desconto_valor)), `- ${brl(Number(f.economia_centavos))}`]);
+  for (const e of (f.encargos_detalhe as EncargoAtraso[] | null) ?? []) linhas.push([descreverEncargo(e), brl(e.multa_centavos + e.juros_centavos)]);
   const custo = Number(f.custo_usina_centavos ?? 0);
 
   return (

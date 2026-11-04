@@ -2,6 +2,7 @@ import { Document, Font, Image, Link, Page, Text, View, StyleSheet, renderToBuff
 import QRCode from "qrcode";
 import { brl, data, mesExtenso, nFatura, numero } from "../format";
 import { descreverRegra, type ModoDesconto } from "../calculo";
+import { descreverEncargo, type EncargoAtraso } from "../encargos";
 
 // Sem hifenização: o código PIX não pode ganhar hífens ao quebrar linha
 Font.registerHyphenationCallback((palavra) => [palavra]);
@@ -24,6 +25,8 @@ export type DadosFaturaPdf = {
   sem_usina_centavos: number;
   total_centavos: number;
   economia_centavos: number;
+  encargos_detalhe?: EncargoAtraso[] | null; // multa e juros de faturas anteriores pagas com atraso
+  regra_atraso?: { multa: number; juros: number } | null; // regra da usina, quando ativa
   economia_acumulada_centavos: number;
   pix_copia_cola: string | null;
   cobranca_link?: string | null;
@@ -563,6 +566,13 @@ function FaturaDoc({ f, qr }: { f: DadosFaturaPdf; qr: string | null }) {
               <Text style={s.descontoValor}>- {brl(f.economia_centavos)}</Text>
             </View>
 
+            {(f.encargos_detalhe ?? []).map((e) => (
+              <View key={e.fatura_id} style={[s.linha, s.linhaImpar]}>
+                <Text style={s.itemTexto}>{descreverEncargo(e)}</Text>
+                <Text style={s.itemValor}>{brl(e.multa_centavos + e.juros_centavos)}</Text>
+              </View>
+            ))}
+
             {/* Total Final */}
             <View style={s.linhaFinal}>
               <Text style={s.totalTexto}>Total da fatura da usina</Text>
@@ -639,6 +649,8 @@ function Itens({ titulo, itens, meio }: { titulo: string; itens: string[]; meio?
   );
 }
 
+const pct = (n: number) => String(n).replace(".", ",");
+
 /** Bloco de orientações ao cliente, no estilo das contas de energia */
 function Informacoes({ f }: { f: DadosFaturaPdf }) {
   const { usina, cliente } = f.snapshot;
@@ -652,7 +664,7 @@ function Informacoes({ f }: { f: DadosFaturaPdf }) {
     : [
         `Pague até ${data(f.vencimento)} pelo PIX acima${f.cobranca_link ? " ou pelo link de pagamento" : ""}.`,
         `Confira se o favorecido é ${favorecido}.`,
-        "Após o vencimento: multa de 2% e juros de 1% ao mês.",
+        ...(f.regra_atraso ? [`Após o vencimento: multa de ${pct(f.regra_atraso.multa)}% e juros de ${pct(f.regra_atraso.juros)}% ao mês, cobrados na próxima fatura.`] : []),
         f.cobranca_link ? "O pagamento é reconhecido sozinho. Guarde o comprovante." : "Guarde o comprovante do pagamento.",
       ];
 

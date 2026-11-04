@@ -18,6 +18,7 @@
     "lucide-react": "^1.47.0",
     "mupdf": "^1.28.1",
     "next": "15.5.25",
+    "nodemailer": "^6.10.1",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react": "19.1.1",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.19.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",

@@ -71,7 +71,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Settings size={20} />
           </Link>
         </header>
-        <main className="mx-auto max-w-5xl px-4 pb-28 pt-4 sm:px-6 sm:pb-32 sm:pt-6 lg:px-10 lg:pb-12 lg:pt-10">{children}</main>
+        <main className="mx-auto max-w-5xl px-4 pb-28 pt-4 sm:px-6 sm:pb-32 sm:pt-6 lg:px-10 lg:pb-12 lg:pt-10">
+          {usina.whatsapp_instancia && usina.whatsapp_estado && usina.whatsapp_estado !== "open" ? (
+            <div className="mb-5 rounded-[var(--radius-campo)] border border-erro/40 bg-erro/10 px-4 py-3 text-sm">
+              <strong className="text-erro">WhatsApp desconectado.</strong> As faturas estão sendo emitidas, mas não estão indo para os clientes. Fale com a VisioPro para reconectar o número.
+            </div>
+          ) : null}
+          {children}
+        </main>
       </div>
       <NavInferior />
     </div>

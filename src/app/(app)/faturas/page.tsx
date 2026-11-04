@@ -18,7 +18,7 @@ export default async function Faturas({ searchParams }: { searchParams: Promise<
 
   let q = supabase
     .from("faturas")
-    .select("id, numero, referencia, vencimento, status, total_centavos, snapshot")
+    .select("id, numero, referencia, vencimento, status, total_centavos, snapshot, enviada_em")
     .eq("usina_id", usina.id)
     .order("referencia", { ascending: false })
     .order("numero", { ascending: false })
@@ -73,6 +73,7 @@ export default async function Faturas({ searchParams }: { searchParams: Promise<
                 <span className="shrink-0 text-right">
                   <span className={cx("block text-sm font-medium sm:text-base", f.status === "cancelada" && "text-nevoa line-through")}>{brl(Number(f.total_centavos))}</span>
                   <Status s={f.status as "pendente"} vencida={f.status === "pendente" && f.vencimento < hoje} />
+                  {f.status === "pendente" && !f.enviada_em ? <span className="mt-1 block text-[11px] font-medium text-alerta">Não enviada</span> : null}
                 </span>
               </Link>
             );

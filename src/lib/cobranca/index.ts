@@ -59,8 +59,10 @@ export async function cobrar(supabase: SupabaseClient, usina: Usina, faturaId: s
   const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
   if (f.vencimento < hoje) return { erro: "O vencimento já passou. Cancele e reemita com nova data." };
 
+  const { count: anteriores } = await supabase.from("eventos").select("id", { count: "exact", head: true }).eq("alvo_id", f.id).eq("acao", "cobranca_criada");
   try {
     const r = await gateway.criar({
+      tentativa: anteriores ?? 0,
       faturaId: f.id,
       usinaId: usina.id,
       valorCentavos: Number(f.total_centavos),

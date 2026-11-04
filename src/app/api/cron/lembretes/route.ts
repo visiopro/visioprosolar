@@ -1,4 +1,5 @@
 import { pixDaFatura } from "@/lib/pix";
+import { processarPagamentoMP } from "@/lib/mercadopago-pagamentos";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { enviarTexto, usaWhatsAppOficial, whatsappDisponivel } from "@/lib/whatsapp";
 import { segredos } from "@/lib/cobranca";
@@ -18,6 +19,18 @@ export async function GET(req: Request) {
   }
   const admin = supabaseAdmin();
   const hoje = hojeBR();
+
+  // Conferência com o Mercado Pago antes de lembrar: pagamento cujo aviso (webhook) se perdeu recebe baixa aqui
+  let conciliadas = 0;
+  const { data: abertas } = await admin.from("faturas").select("usina_id, cobranca_id").eq("status", "pendente").eq("cobranca_gateway", "mercadopago").not("cobranca_id", "is", null).limit(300);
+  for (const f of abertas ?? []) {
+    try {
+      const r = await processarPagamentoMP(f.usina_id, String(f.cobranca_id));
+      if ((await r.json().catch(() => null))?.baixa) conciliadas++;
+    } catch (e) {
+      console.error("conciliação mp", f.cobranca_id, e);
+    }
+  }
   const { data: faturas, error } = await admin
     .from("faturas")
     .select("id, usina_id, referencia, vencimento, total_centavos, pix_copia_cola, cobranca_id, cobranca_gateway, cobranca_link, snapshot, clientes(whatsapp), usinas(whatsapp_instancia, nome, asaas_notificar, gateway)")
@@ -55,5 +68,5 @@ export async function GET(req: Request) {
       falhas.push(`${f.id}: ${e instanceof Error ? e.message : "erro"}`);
     }
   }
-  return Response.json({ enviados, falhas });
+  return Response.json({ conciliadas, enviados, falhas });
 }

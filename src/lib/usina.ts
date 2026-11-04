@@ -12,6 +12,7 @@ export type Usina = {
   pix_cidade: string | null;
   pix_documento?: string | null;
   encargos_ativos?: boolean;
+  emissao_automatica?: boolean;
   encargos_desde?: string | null;
   multa_percentual?: number;
   juros_mensal?: number;

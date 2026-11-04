@@ -76,6 +76,13 @@ export function FormUsina({
             <p className="mt-2 text-xs text-nevoa">Para enviar boas-vindas e lembretes pelo número oficial, também é necessário configurar o modelo de mensagem de texto.</p>
           ) : null}
           <label className="mt-3 flex items-start gap-3 text-sm">
+            <input type="checkbox" name="emissao_automatica" defaultChecked={!!usina.emissao_automatica} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />
+            <span>
+              Emitir e enviar sozinho as contas que chegam pelo e-mail
+              <span className="block text-xs text-nevoa">Quando a leitura sai sem dúvida e o cliente tem nome e WhatsApp, a fatura é emitida e enviada na hora. O que tiver qualquer dúvida fica em Contas recebidas para você conferir.</span>
+            </span>
+          </label>
+          <label className="mt-3 flex items-start gap-3 text-sm">
             <input type="checkbox" name="whatsapp_auto" defaultChecked={usina.whatsapp_auto} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />
             <span>
               Enviar a fatura no WhatsApp do cliente automaticamente ao emitir

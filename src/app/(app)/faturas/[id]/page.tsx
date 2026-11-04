@@ -18,6 +18,7 @@ const NOMES_EVENTO: Record<string, string> = {
   pagamento_desfeito: "Pagamento desfeito",
   fatura_cancelada: "Cancelada",
   vencimento_alterado: "Vencimento alterado",
+  emissao_auto_aviso: "Aviso da emissão automática",
   cobranca_asaas: "Cobrança criada no Asaas",
   cobranca_criada: "Cobrança automática criada",
   pagamento_mp: "Pagamento confirmado pelo Mercado Pago",

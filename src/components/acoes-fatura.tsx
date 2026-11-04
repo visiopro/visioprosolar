@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { Copy, Download, ExternalLink, FileImage, Landmark, Loader2, Send } from "lucide-react";
-import { cancelarFatura, enviarWhatsapp, gerarCobranca, marcarPaga, type Estado } from "@/app/(app)/actions";
+import { alterarVencimento, cancelarFatura, enviarWhatsapp, gerarCobranca, marcarPaga, type Estado } from "@/app/(app)/actions";
 import { Aviso, Botao, Campo, Cartao } from "./ui";
 
 export function AcoesFatura(p: {
@@ -15,12 +15,15 @@ export function AcoesFatura(p: {
   cobrancaId: string | null;
   cobrancaLink: string | null;
   cobrancaGateway: string | null;
+  vencimento?: string;
 }) {
   const servico = p.cobrancaGateway === "mercadopago" ? "Mercado Pago" : "Asaas";
   const [pendente, iniciar] = useTransition();
   const [msg, setMsg] = useState<{ erro?: string; ok?: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [cancelando, setCancelando] = useState(false);
+  const [mudandoData, setMudandoData] = useState(false);
+  const [novaData, setNovaData] = useState(p.vencimento ?? "");
   const [estado, cancelar, enviandoCancel] = useActionState<Estado, FormData>(cancelarFatura, undefined);
   const ativa = p.status !== "cancelada";
 
@@ -79,11 +82,45 @@ export function AcoesFatura(p: {
           >
             {p.status === "paga" ? "Desfazer pagamento" : p.cobrancaId ? "Recebi por fora (dinheiro/transferência)" : "Marcar como paga"}
           </Botao>
+          {p.status === "pendente" && !mudandoData ? (
+            <Botao variante="fantasma" className="w-full" onClick={() => setMudandoData(true)}>
+              Alterar vencimento
+            </Botao>
+          ) : null}
           {p.status === "pendente" && !cancelando ? (
             <Botao variante="fantasma" className="w-full text-erro/80 hover:text-erro" onClick={() => setCancelando(true)}>
               Cancelar fatura
             </Botao>
           ) : null}
+        </div>
+      ) : null}
+
+      {mudandoData && p.status === "pendente" ? (
+        <div className="space-y-3 border-t border-traco pt-3">
+          <Campo
+            rotulo="Novo vencimento"
+            ajuda={p.cobrancaId ? `A cobrança no ${servico} é refeita com a nova data (o PIX muda).` : "A fatura passa a vencer nessa data."}
+          >
+            <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} className="campo" />
+          </Campo>
+          <div className="flex gap-2">
+            <Botao
+              className="flex-1"
+              disabled={pendente || !novaData}
+              onClick={() =>
+                iniciar(async () => {
+                  const r = await alterarVencimento(p.id, novaData);
+                  setMsg(r);
+                  if (!r.erro) setMudandoData(false);
+                })
+              }
+            >
+              {pendente ? <Loader2 size={17} className="animate-spin" /> : null} Salvar data
+            </Botao>
+            <Botao variante="secundario" disabled={pendente} onClick={() => setMudandoData(false)}>
+              Voltar
+            </Botao>
+          </div>
         </div>
       ) : null}
 

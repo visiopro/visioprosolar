@@ -35,7 +35,7 @@ export async function monitorarWhatsapp() {
   if (!url) return [];
   const db = supabaseAdmin();
   const { data: usinas } = await db.from("usinas").select("id, nome, whatsapp_instancia, whatsapp_alerta_em, whatsapp_estado").not("whatsapp_instancia", "is", null);
-  const resultado: { usina: string; estado: string }[] = [];
+  const resultado: { usina: string; estado: string; email?: string }[] = [];
   for (const u of usinas ?? []) {
     const instancia = u.whatsapp_instancia as string;
     const key = (await segredos(u.id)).evolutionToken || (process.env.EVOLUTION_API_KEY ?? "").trim();
@@ -48,6 +48,7 @@ export async function monitorarWhatsapp() {
     }
     const agora = new Date();
     // só alerta na segunda checagem seguida fora do ar (evita alarme durante uma reconexão rápida)
+    let email: string | undefined;
     const alertar = e !== "open" && !!u.whatsapp_estado && u.whatsapp_estado !== "open" && (!u.whatsapp_alerta_em || agora.getTime() - Date.parse(u.whatsapp_alerta_em) > SEIS_HORAS);
     if (alertar) {
       const { data: donos } = await db.from("usina_membros").select("user_id").eq("usina_id", u.id).eq("papel", "dono");
@@ -56,7 +57,7 @@ export async function monitorarWhatsapp() {
         const { data } = await db.auth.admin.getUserById(d.user_id);
         if (data.user?.email) emails.push(data.user.email);
       }
-      await enviarAlertaEmail(
+      email = await enviarAlertaEmail(
         emails,
         `WhatsApp desconectado · ${u.nome}`,
         `O WhatsApp da ${u.nome} (instância ${instancia}) está fora do ar (estado: ${e}).\n\nEnquanto isso, as faturas são emitidas mas NÃO são enviadas aos clientes, e os lembretes não saem.\n\nO sistema já tentou reiniciar sozinho. Se continuar, reconecte o número lendo o QR code no painel da Evolution ou fale com a VisioPro.\n\nVisioPro Solar`,
@@ -72,7 +73,7 @@ export async function monitorarWhatsapp() {
         ...(alertar ? { whatsapp_alerta_em: agora.toISOString() } : e === "open" ? { whatsapp_alerta_em: null } : {}),
       })
       .eq("id", u.id);
-    resultado.push({ usina: u.nome, estado: e });
+    resultado.push({ usina: u.nome, estado: e, ...(email ? { email } : {}) });
   }
   return resultado;
 }

@@ -50,9 +50,9 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
               <span className="min-w-0">
                 <span className="flex items-center gap-2">
                   <span className={`truncate ${c.ativo ? "" : "text-nevoa line-through"}`}>{c.nome}</span>
-                  {c.ativo && c.cadastro_automatico && !c.whatsapp ? (
+                  {c.ativo && c.cadastro_automatico && (!c.whatsapp || c.nome.startsWith("UC ")) ? (
                     <span className="shrink-0 rounded bg-sol/15 px-1.5 py-0.5 text-[10px] font-medium text-sol">
-                      Novo pela conta · falta WhatsApp
+                      Novo pela conta · completar cadastro
                     </span>
                   ) : null}
                   {c.ativo && !c.boas_vindas_em && c.whatsapp ? (

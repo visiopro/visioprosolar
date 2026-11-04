@@ -107,3 +107,21 @@ export function BotaoImprimir() {
     </button>
   );
 }
+
+/** Copia a linha digitável da conta da distribuidora (só os números, como o app do banco aceita) */
+export function CopiarCodigo({ codigo }: { codigo: string }) {
+  const [copiado, setCopiado] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        await navigator.clipboard.writeText(codigo);
+        setCopiado(true);
+        setTimeout(() => setCopiado(false), 2500);
+      }}
+      className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-traco px-2 py-1 text-xs font-medium text-sol hover:border-sol"
+    >
+      {copiado ? "Código copiado" : "Copiar código de barras"}
+    </button>
+  );
+}

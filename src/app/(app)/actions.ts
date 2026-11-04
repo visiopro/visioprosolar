@@ -354,7 +354,9 @@ export async function cancelarFatura(_: Estado, form: FormData): Promise<Estado>
   await supabase.from("faturas").update({ encargo_fatura_id: null }).eq("encargo_fatura_id", id);
   // a conta da distribuidora ligada a essa fatura sai do financeiro se ainda não foi paga
   // (feito pelo servidor: o operador cancela a fatura, mas não apaga despesas diretamente)
-  await supabaseAdmin().from("despesas").delete().eq("fatura_id", id).eq("usina_id", usina.id).is("pago_em", null);
+  await supabaseAdmin().from("despesas").delete().eq("fatura_id", id).eq("usina_id", usina.id).is("pago_em", null).is("conta_id", null);
+  // conta que chegou pelo e-mail continua a pagar (a distribuidora cobra de qualquer jeito); só perde o vínculo com a fatura
+  await supabaseAdmin().from("despesas").update({ fatura_id: null }).eq("fatura_id", id).eq("usina_id", usina.id).not("conta_id", "is", null);
   await registrarEvento(supabase, usina.id, "fatura_cancelada", id, { motivo });
   revalidatePath(`/faturas/${id}`);
   revalidatePath("/faturas");

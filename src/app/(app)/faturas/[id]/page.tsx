@@ -17,6 +17,7 @@ const NOMES_EVENTO: Record<string, string> = {
   fatura_paga: "Marcada como paga",
   pagamento_desfeito: "Pagamento desfeito",
   fatura_cancelada: "Cancelada",
+  vencimento_alterado: "Vencimento alterado",
   cobranca_asaas: "Cobrança criada no Asaas",
   cobranca_criada: "Cobrança automática criada",
   pagamento_mp: "Pagamento confirmado pelo Mercado Pago",
@@ -144,6 +145,7 @@ export default async function Fatura({ params }: { params: Promise<{ id: string 
           cobrancaId={f.cobranca_id}
           cobrancaLink={f.cobranca_link}
           cobrancaGateway={f.cobranca_gateway}
+          vencimento={f.vencimento}
         />
         <section>
           <h2 className="mb-3 text-sm font-semibold">Histórico</h2>

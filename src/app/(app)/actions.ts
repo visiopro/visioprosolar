@@ -538,6 +538,50 @@ export async function cancelarFatura(_: Estado, form: FormData): Promise<Estado>
   return { ok: "Fatura cancelada. Você já pode emitir uma nova para esse mês." };
 }
 
+/** Corrige o vencimento de uma fatura pendente. Se houver cobrança no gateway, cancela e cria outra com a nova data. */
+export async function alterarVencimento(id: string, vencimento: string): Promise<{ erro?: string; ok?: string }> {
+  try {
+    const { supabase, usina } = await contexto();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(vencimento)) return { erro: "Informe a nova data." };
+    if (vencimento < hojeBR()) return { erro: "A nova data não pode ser antes de hoje." };
+    const { data: f } = await supabase.from("faturas").select("status, vencimento, cobranca_gateway, cobranca_id").eq("id", id).maybeSingle();
+    if (!f || f.status !== "pendente") return { erro: "Só é possível alterar o vencimento de faturas pendentes." };
+    if (f.vencimento === vencimento) return { ok: "O vencimento já é essa data." };
+
+    let tinhaCobranca = false;
+    if (f.cobranca_id && f.cobranca_gateway) {
+      const g = await obterGateway(usina, f.cobranca_gateway as NomeGateway);
+      if (g) {
+        try {
+          await g.cancelar(f.cobranca_id);
+        } catch (e) {
+          return { erro: `O ${NOMES_GATEWAY[g.nome]} não cancelou a cobrança antiga: ${erroDe(e)}. Nada foi alterado.` };
+        }
+      }
+      tinhaCobranca = true;
+    }
+    const { error } = await supabase
+      .from("faturas")
+      .update({ vencimento, lembrete_em: null, ...(tinhaCobranca ? { cobranca_id: null, cobranca_link: null, cobranca_gateway: null, pix_copia_cola: null } : {}) })
+      .eq("id", id)
+      .eq("status", "pendente");
+    if (error) return { erro: erroDe(error) };
+    await registrarEvento(supabase, usina.id, "vencimento_alterado", id, { de: f.vencimento, para: vencimento });
+
+    let aviso = "";
+    if (usina.gateway !== "nenhum") {
+      const c = await cobrar(supabase, usina, id);
+      if (c.erro) aviso = ` A nova cobrança não foi criada: ${c.erro} Clique em "Gerar cobrança automática".`;
+      else if (tinhaCobranca) aviso = " O PIX mudou: se o cliente já recebeu a fatura, envie de novo no WhatsApp.";
+    }
+    revalidatePath(`/faturas/${id}`);
+    revalidatePath("/faturas");
+    revalidatePath("/");
+    return { ok: `Vencimento alterado para ${vencimento.split("-").reverse().join("/")}.${aviso}` };
+  } catch (e) {
+    return { erro: erroDe(e) };
+  }
+}
 export async function gerarCobranca(id: string): Promise<{ erro?: string; ok?: string }> {
   const { supabase, usina } = await contexto();
   const r = await cobrar(supabase, usina, id);

@@ -12,6 +12,7 @@ export type DadosCobranca = {
   valorCentavos: number;
   vencimento: string; // AAAA-MM-DD
   descricao: string;
+  tentativa?: number; // quantas cobranças essa fatura já teve (cancelada/refeita gera uma nova)
   cliente: {
     id: string;
     nome: string;

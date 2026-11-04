@@ -110,8 +110,10 @@ export function gatewayMercadoPago(token: string, urlNotificacao: string): Gatew
               : {}),
           },
         },
-        `fatura-${d.faturaId}`, // mesma fatura nunca gera duas cobranças
+        // repetição da mesma chamada não duplica; cobrança cancelada e refeita (novo vencimento) ganha chave nova
+        `fatura-${d.faturaId}-${d.tentativa ?? 0}`,
       );
+      if (pag.status === "cancelled") throw new ErroCobranca("O Mercado Pago devolveu uma cobrança já cancelada. Tente gerar de novo em instantes.");
       const t = pag.point_of_interaction?.transaction_data;
       return { id: String(pag.id), link: t?.ticket_url ?? null, pix: t?.qr_code ?? null };
     },

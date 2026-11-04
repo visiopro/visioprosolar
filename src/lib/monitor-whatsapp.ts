@@ -2,7 +2,7 @@ import "server-only";
 import { supabaseAdmin } from "./supabase/admin";
 import { segredos } from "./cobranca";
 import { usaWhatsAppOficial } from "./whatsapp";
-import { enviarAlertaEmail } from "./alerta-email";
+import { enviarAlertaEmail, enviarAlertaNtfy } from "./alerta-email";
 
 const SEIS_HORAS = 6 * 3600 * 1000;
 
@@ -61,6 +61,7 @@ export async function monitorarWhatsapp() {
         `WhatsApp desconectado · ${u.nome}`,
         `O WhatsApp da ${u.nome} (instância ${instancia}) está fora do ar (estado: ${e}).\n\nEnquanto isso, as faturas são emitidas mas NÃO são enviadas aos clientes, e os lembretes não saem.\n\nO sistema já tentou reiniciar sozinho. Se continuar, reconecte o número lendo o QR code no painel da Evolution ou fale com a VisioPro.\n\nVisioPro Solar`,
       );
+      await enviarAlertaNtfy(`WhatsApp fora do ar · ${u.nome}`, `Instância ${instancia} (${e}). As faturas não estão indo para os clientes. Reconecte o número no painel da Evolution.`);
       await db.from("eventos").insert({ usina_id: u.id, user_id: null, acao: "whatsapp_fora", detalhes: { instancia, estado: e } });
     }
     await db

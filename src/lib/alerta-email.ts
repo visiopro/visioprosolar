@@ -19,3 +19,22 @@ export async function enviarAlertaEmail(para: string[], assunto: string, texto: 
     return false;
   }
 }
+
+/** Notificação no celular pelo app ntfy (NTFY_TOPICO; NTFY_URL opcional, padrão ntfy.sh). Sem tópico, não faz nada. */
+export async function enviarAlertaNtfy(titulo: string, texto: string): Promise<boolean> {
+  const topico = process.env.NTFY_TOPICO?.trim();
+  if (!topico) return false;
+  const base = (process.env.NTFY_URL?.trim() || "https://ntfy.sh").replace(/\/+$/, "");
+  try {
+    // publicação em JSON: aceita acentos no título
+    const res = await fetch(base, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ topic: topico, title: titulo, message: texto, priority: 4, tags: ["warning"] }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

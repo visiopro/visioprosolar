@@ -565,7 +565,7 @@ export async function alterarVencimento(id: string, vencimento: string): Promise
       .update({ vencimento, lembrete_em: null, ...(tinhaCobranca ? { cobranca_id: null, cobranca_link: null, cobranca_gateway: null, pix_copia_cola: null } : {}) })
       .eq("id", id)
       .eq("status", "pendente");
-    if (error) return { erro: erroDe(error) };
+    if (error) return { erro: error.message };
     await registrarEvento(supabase, usina.id, "vencimento_alterado", id, { de: f.vencimento, para: vencimento });
 
     let aviso = "";

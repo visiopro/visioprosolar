@@ -11,7 +11,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
   const { q = "", inativos } = await searchParams;
   let consulta = supabase
     .from("clientes")
-    .select("id, nome, uc, distribuidora, modo_desconto, desconto_valor, ativo, boas_vindas_em, whatsapp")
+    .select("id, nome, uc, distribuidora, modo_desconto, desconto_valor, ativo, boas_vindas_em, whatsapp, cadastro_automatico")
     .eq("usina_id", usina.id)
     .order("nome");
   if (!inativos) consulta = consulta.eq("ativo", true);
@@ -50,6 +50,11 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
               <span className="min-w-0">
                 <span className="flex items-center gap-2">
                   <span className={`truncate ${c.ativo ? "" : "text-nevoa line-through"}`}>{c.nome}</span>
+                  {c.ativo && c.cadastro_automatico && !c.whatsapp ? (
+                    <span className="shrink-0 rounded bg-sol/15 px-1.5 py-0.5 text-[10px] font-medium text-sol">
+                      Novo pela conta · falta WhatsApp
+                    </span>
+                  ) : null}
                   {c.ativo && !c.boas_vindas_em && c.whatsapp ? (
                     <span className="shrink-0 rounded bg-alerta/15 px-1.5 py-0.5 text-[10px] font-medium text-alerta">
                       Sem boas-vindas

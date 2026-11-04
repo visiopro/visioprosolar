@@ -20,6 +20,7 @@ export type ClienteForm = {
   cip_valor?: number;
   cip_tabela_id?: string | null;
   cip_classe?: ClasseCip | null;
+  dia_vencimento?: number | null;
 };
 
 export type TabelaCip = { id: string; municipio: string; uf: string };
@@ -55,8 +56,11 @@ export function FormCliente({ c = {}, tabelas = [] }: { c?: ClienteForm; tabelas
         <Campo rotulo="WhatsApp" ajuda="Com DDD. Ex.: 77 99999-0000">
           <input name="whatsapp" defaultValue={c.whatsapp?.replace(/^55/, "") ?? ""} className="campo" inputMode="tel" />
         </Campo>
-        <Campo rotulo="E-mail" className="sm:col-span-2">
+        <Campo rotulo="E-mail">
           <input name="email" type="email" defaultValue={c.email ?? ""} className="campo" />
+        </Campo>
+        <Campo rotulo="Dia de vencimento" ajuda="Opcional. Se o cliente pediu um dia fixo (ex.: 16), as próximas faturas já vêm com essa data. Vazio usa o prazo padrão de Ajustes.">
+          <input name="dia_vencimento" type="number" min={1} max={31} inputMode="numeric" defaultValue={c.dia_vencimento ?? ""} placeholder="Padrão da usina" className="campo" />
         </Campo>
       </div>
 

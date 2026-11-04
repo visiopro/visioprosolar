@@ -39,6 +39,7 @@ const esquemaCliente = z.object({
   cip_tabela_id: z.string().uuid().nullable(),
   cip_classe: z.enum(["B1", "B2", "B3", "outros"]).nullable(),
   desconto_valor: z.number({ invalid_type_error: "Informe o desconto." }).min(0),
+  dia_vencimento: z.number().int().min(1, "Dia de vencimento entre 1 e 31.").max(31, "Dia de vencimento entre 1 e 31.").nullable(),
 });
 
 export async function salvarCliente(_: Estado, form: FormData): Promise<Estado> {
@@ -58,6 +59,7 @@ export async function salvarCliente(_: Estado, form: FormData): Promise<Estado> 
     cip_valor: parseNumeroBR(txt(form, "cip_valor")) ?? 0,
     cip_tabela_id: txt(form, "cip_tabela_id") || null,
     cip_classe: (txt(form, "cip_classe") || null) as "B1" | null,
+    dia_vencimento: txt(form, "dia_vencimento") ? Number(txt(form, "dia_vencimento")) : null,
   };
   const v = esquemaCliente.safeParse(bruto);
   if (!v.success) return { erro: v.error.issues[0].message };

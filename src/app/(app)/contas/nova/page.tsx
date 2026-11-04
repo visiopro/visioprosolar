@@ -21,7 +21,7 @@ export default async function NovaConta({ searchParams }: { searchParams: Promis
   }
   const { data: clientes } = await supabase
     .from("clientes")
-    .select("id, nome, uc, whatsapp, modo_desconto, desconto_valor, cip_modo, cip_valor, cip_tabela_id, cip_classe")
+    .select("id, nome, uc, whatsapp, modo_desconto, desconto_valor, cip_modo, cip_valor, cip_tabela_id, cip_classe, dia_vencimento")
     .eq("usina_id", usina.id)
     .eq("ativo", true)
     .order("nome");

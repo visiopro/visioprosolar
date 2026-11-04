@@ -5,13 +5,13 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Camera, FileUp, Loader2, Check, Send } from "lucide-react";
 import { emitirFatura, enviarWhatsapp } from "@/app/(app)/actions";
 import { calcularFatura, descreverRegra, usaCompensada, type ModoDesconto } from "@/lib/calculo";
-import { brl, parseNumeroBR } from "@/lib/format";
+import { brl, hojeBR, parseNumeroBR, proximoVencimento } from "@/lib/format";
 import { normalizarUC, type LeituraConta } from "@/lib/leitor/tipos";
 import { cipDaTabela, type ClasseCip, type FaixaCip } from "@/lib/cip";
 import { conferirVariacao, type HistoricoCliente } from "@/lib/conferencia";
 import { Aviso, Botao, Campo, Cartao, cx } from "./ui";
 
-type Cliente = { id: string; nome: string; uc: string; whatsapp: string | null; modo_desconto: ModoDesconto; desconto_valor: number; cip_modo: "da_conta" | "percentual" | "fixo" | "tabela"; cip_valor: number; cip_tabela_id: string | null; cip_classe: ClasseCip | null };
+type Cliente = { id: string; nome: string; uc: string; whatsapp: string | null; modo_desconto: ModoDesconto; desconto_valor: number; cip_modo: "da_conta" | "percentual" | "fixo" | "tabela"; cip_valor: number; cip_tabela_id: string | null; cip_classe: ClasseCip | null; dia_vencimento?: number | null };
 export type Resposta = { contaId: string; leitura: LeituraConta | null; aviso: string; clienteId: string | null; arquivoUrl: string | null; arquivoTipo: string };
 
 const LIMITE_PDF = 4 * 1024 * 1024; // limite de corpo da Vercel ~4,5 MB
@@ -72,6 +72,12 @@ export function LancarConta(p: { clientes: Cliente[]; clienteInicial: string | n
     setF((a) => ({ ...a, [k]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value }));
 
   const cliente = p.clientes.find((c) => c.id === f.clienteId);
+
+  // Cliente com dia fixo de vencimento: a data já vem preenchida com o próximo desse dia
+  useEffect(() => {
+    const dia = p.clientes.find((c) => c.id === f.clienteId)?.dia_vencimento;
+    setF((a) => ({ ...a, vencimento: dia ? proximoVencimento(hojeBR(), dia) : p.vencimentoPadrao }));
+  }, [f.clienteId, p.clientes, p.vencimentoPadrao]);
   const duvidoso = (campo: string) => !!resp?.leitura?.duvidosos.includes(campo);
 
   const modo: ModoDesconto = cliente?.modo_desconto ?? "percentual_conta_cheia";

@@ -47,3 +47,18 @@ export function somarDias(iso: string, dias: number): string {
   d.setUTCDate(d.getUTCDate() + dias);
   return d.toISOString().slice(0, 10);
 }
+
+/**
+ * Próximo vencimento no dia fixo do cliente: neste mês se ainda não passou, senão no próximo.
+ * Dia maior que o mês (31 em novembro) vira o último dia do mês.
+ */
+export function proximoVencimento(hoje: string, dia: number): string {
+  const [a, m, d] = hoje.split("-").map(Number);
+  const noMes = (ano: number, mes: number) => {
+    const ultimo = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+    return `${ano}-${String(mes).padStart(2, "0")}-${String(Math.min(dia, ultimo)).padStart(2, "0")}`;
+  };
+  const este = noMes(a, m);
+  if (Number(este.slice(8)) > d) return este;
+  return m === 12 ? noMes(a + 1, 1) : noMes(a, m + 1);
+}

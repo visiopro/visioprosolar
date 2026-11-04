@@ -1,3 +1,4 @@
+import type { EncargoAtraso } from "@/lib/encargos";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { gerarPdfFatura, type DadosFaturaPdf } from "./pdf/fatura";
@@ -25,7 +26,7 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
   const acumulada = (anteriores ?? []).reduce((soma, r) => soma + Number(r.economia_centavos), 0);
 
   const [{ data: u }, { data: cli }] = await Promise.all([
-    supabase.from("usinas").select("logo_path, contato_whatsapp, recebedor_nome, recebedor_documento, pix_favorecido, pix_documento, documento, gateway").eq("id", f.usina_id).maybeSingle(),
+    supabase.from("usinas").select("logo_path, contato_whatsapp, recebedor_nome, recebedor_documento, pix_favorecido, pix_documento, documento, gateway, encargos_ativos, multa_percentual, juros_mensal").eq("id", f.usina_id).maybeSingle(),
     supabase.from("clientes").select("portal_token").eq("id", f.cliente_id).maybeSingle(),
   ]);
   // logo: a gravada na emissão; faturas antigas usam a logo atual da usina
@@ -51,6 +52,8 @@ export async function pdfDaFatura(supabase: SupabaseClient, faturaId: string) {
     total_centavos: Number(f.total_centavos),
     economia_centavos: Number(f.economia_centavos),
     economia_acumulada_centavos: acumulada,
+    encargos_detalhe: (f.encargos_detalhe as EncargoAtraso[] | null) ?? null,
+    regra_atraso: u?.encargos_ativos ? { multa: Number(u.multa_percentual), juros: Number(u.juros_mensal) } : null,
     contato_whatsapp: (u?.contato_whatsapp as string | null) ?? null,
     portal_url: cli?.portal_token ? linkPortal(cli.portal_token as string) : null,
     pix_copia_cola: pixDaFatura(f, u?.gateway as string | undefined),

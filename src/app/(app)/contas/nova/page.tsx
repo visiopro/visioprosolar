@@ -77,6 +77,7 @@ export default async function NovaConta({ searchParams }: { searchParams: Promis
         vencimentoPadrao={somarDias(hojeBR(), usina.dias_vencimento)}
         whatsappConfigurado={whatsappDisponivel(usina.whatsapp_instancia, "fatura")}
         bandeiraPadrao={Number(usina.bandeira_padrao ?? 0)}
+        encargosAtivos={!!usina.encargos_ativos}
         historico={[...porCliente.values()]}
         faixasCip={(faixas ?? []).map((f) => ({ ...f, classe: f.classe as "B1", tipo: f.tipo as "percentual", valor: Number(f.valor) }))}
       />

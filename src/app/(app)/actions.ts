@@ -15,9 +15,10 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { cobrar, obterGateway, segredos, NOMES_GATEWAY, type NomeGateway } from "@/lib/cobranca";
 import { ambienteDaChave, gatewayAsaas } from "@/lib/cobranca/asaas";
 import { gatewayMercadoPago, recebedorMercadoPago } from "@/lib/cobranca/mercadopago";
-import { hojeBR } from "@/lib/format";
+import { brl, hojeBR } from "@/lib/format";
 import { CATEGORIAS } from "@/lib/financeiro";
 import { normalizarUC } from "@/lib/leitor/tipos";
+import { calcularEncargo, totalEncargos, type EncargoAtraso } from "@/lib/encargos";
 
 export type Estado = { erro?: string; ok?: string } | undefined;
 
@@ -284,6 +285,7 @@ export type DadosEmissao = {
   vencimentoConta: string;  // AAAA-MM-DD da conta da distribuidora (conta no nome da usina)
   vencimento: string;   // AAAA-MM-DD
   confirmado: boolean;
+  cobrarEncargos?: boolean; // multa e juros de faturas anteriores pagas com atraso (padrão: sim)
 };
 
 const reaisParaCentavos = (v: string) => Math.round((parseNumeroBR(v) ?? 0) * 100);
@@ -322,12 +324,35 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
     });
 
     const referencia = `${d.referencia}-01`;
+
+    // Faturas anteriores desse cliente pagas com atraso e ainda sem encargo cobrado: multa e juros entram nesta
+    let encargos: EncargoAtraso[] = [];
+    if (usina.encargos_ativos && d.cobrarEncargos !== false) {
+      const { data: atrasadas } = await supabase
+        .from("faturas")
+        .select("id, numero, referencia, vencimento, paga_em, total_centavos, valor_recebido_centavos")
+        .eq("cliente_id", cliente.id)
+        .eq("status", "paga")
+        .is("encargo_fatura_id", null)
+        .not("paga_em", "is", null)
+        .gte("vencimento", usina.encargos_desde ?? hojeBR());
+      const diaBR = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(iso));
+      encargos = (atrasadas ?? [])
+        .map((a) => calcularEncargo(
+          { id: a.id, numero: a.numero, referencia: a.referencia, vencimento: a.vencimento, paga_em: diaBR(a.paga_em!), total_centavos: Number(a.total_centavos) },
+          Number(usina.multa_percentual ?? 2),
+          Number(usina.juros_mensal ?? 1),
+        ))
+        .filter((e): e is EncargoAtraso => !!e);
+    }
+    const valorEncargos = totalEncargos(encargos);
+    const totalComEncargos = r.totalCentavos + valorEncargos;
     // Cobrança automática ligada: o PIX vem da cobrança; a chave fixa não é usada
     const pix = usina.gateway !== "nenhum" ? null : gerarPix({
       chave: usina.pix_chave ?? "",
       favorecido: usina.pix_favorecido ?? "",
       cidade: usina.pix_cidade ?? "",
-      centavos: r.totalCentavos,
+      centavos: totalComEncargos,
       txid: `SOL${d.referencia.replace("-", "")}${cliente.uc.slice(-8)}`,
     });
 
@@ -375,8 +400,10 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
         valor_conta_centavos: valorConta,
         custo_usina_centavos: modo === "percentual_conta_cheia" ? valorConta : 0,
         sem_usina_centavos: r.semUsinaCentavos,
-        total_centavos: r.totalCentavos,
+        total_centavos: totalComEncargos,
         economia_centavos: r.economiaCentavos,
+        encargos_centavos: valorEncargos,
+        encargos_detalhe: encargos.length ? encargos : null,
         pix_copia_cola: pix,
         snapshot: {
           cliente: { nome: cliente.nome, documento: cliente.documento, uc: cliente.uc, distribuidora: cliente.distribuidora },
@@ -392,7 +419,10 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
     }
 
     await supabase.from("contas_energia").update({ status: "faturada" }).eq("id", d.contaId);
-    await registrarEvento(supabase, usina.id, "fatura_emitida", fatura.id, { total: r.totalCentavos, referencia, ajustado: ajustado !== null });
+    if (encargos.length) {
+      await supabase.from("faturas").update({ encargo_fatura_id: fatura.id }).in("id", encargos.map((e) => e.fatura_id)).is("encargo_fatura_id", null);
+    }
+    await registrarEvento(supabase, usina.id, "fatura_emitida", fatura.id, { total: totalComEncargos, referencia, ajustado: ajustado !== null, encargos: valorEncargos || undefined });
 
     // Conta no nome da usina: vira conta a pagar no financeiro
     if (modo === "percentual_conta_cheia" && valorConta > 0) {
@@ -408,10 +438,12 @@ export async function emitirFatura(d: DadosEmissao): Promise<{ erro?: string; id
       });
     }
 
-    let aviso: string | undefined;
+    let aviso: string | undefined = valorEncargos
+      ? `Incluídos ${brl(valorEncargos)} de multa e juros por atraso (fatura${encargos.length > 1 ? "s" : ""} nº ${encargos.map((e) => e.numero).join(", ")}).`
+      : undefined;
     if (usina.gateway !== "nenhum") {
       const c = await cobrar(supabase, usina, fatura.id);
-      if (c.erro) aviso = `Fatura emitida, mas a cobrança no ${NOMES_GATEWAY[usina.gateway]} não foi criada: ${c.erro} Corrija e clique em "Gerar cobrança automática" antes de enviar.`;
+      if (c.erro) aviso = [aviso, `Fatura emitida, mas a cobrança no ${NOMES_GATEWAY[usina.gateway]} não foi criada: ${c.erro} Corrija e clique em "Gerar cobrança automática" antes de enviar.`].filter(Boolean).join(" ");
     }
     // envio automático no WhatsApp (depois da cobrança, para já sair com o PIX dinâmico)
     let enviada = false;
@@ -493,6 +525,8 @@ export async function cancelarFatura(_: Estado, form: FormData): Promise<Estado>
     .maybeSingle();
   if (error || !data) return { erro: "Só é possível cancelar faturas pendentes." };
   if (data.conta_id) await supabase.from("contas_energia").update({ status: "conferida" }).eq("id", data.conta_id);
+  // multa e juros que estavam nesta fatura voltam a ser cobráveis na próxima
+  await supabase.from("faturas").update({ encargo_fatura_id: null }).eq("encargo_fatura_id", id);
   // a conta da distribuidora ligada a essa fatura sai do financeiro se ainda não foi paga
   // (feito pelo servidor: o operador cancela a fatura, mas não apaga despesas diretamente)
   await supabaseAdmin().from("despesas").delete().eq("fatura_id", id).eq("usina_id", usina.id).is("pago_em", null);
@@ -556,6 +590,10 @@ export async function salvarUsina(_: Estado, form: FormData): Promise<Estado> {
       pix_favorecido: favorecido || null,
       pix_cidade: cidade || null,
       pix_documento: soDigitos(txt(form, "pix_documento")) || null,
+      encargos_ativos: form.get("encargos_ativos") === "on",
+      encargos_desde: form.get("encargos_ativos") === "on" ? (usina.encargos_desde ?? hojeBR()) : null,
+      multa_percentual: Math.min(20, Math.max(0, parseNumeroBR(txt(form, "multa_percentual")) ?? 2)),
+      juros_mensal: Math.min(10, Math.max(0, parseNumeroBR(txt(form, "juros_mensal")) ?? 1)),
       dias_vencimento: dias,
       whatsapp_auto: form.get("whatsapp_auto") === "on",
       bandeira_padrao: Math.max(0, parseNumeroBR(txt(form, "bandeira_padrao")) ?? 0),

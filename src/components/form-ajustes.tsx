@@ -85,6 +85,24 @@ export function FormUsina({
         </div>
       </fieldset>
       <fieldset disabled={!podeEditar} className="rounded-[var(--radius-cartao)] border border-traco p-4 disabled:opacity-70">
+        <legend className="px-1.5 text-sm font-medium">Pagamento com atraso</legend>
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" name="encargos_ativos" defaultChecked={!!usina.encargos_ativos} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />
+          <span>
+            Cobrar multa e juros na fatura seguinte quando o cliente pagar depois do vencimento
+            <span className="block text-xs text-nevoa">Como nas contas de energia: o valor entra sozinho na próxima fatura do cliente. Juros proporcionais aos dias de atraso.</span>
+          </span>
+        </label>
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:max-w-sm">
+          <Campo rotulo="Multa (%)">
+            <input name="multa_percentual" inputMode="decimal" defaultValue={String(usina.multa_percentual ?? 2).replace(".", ",")} className="campo" />
+          </Campo>
+          <Campo rotulo="Juros ao mês (%)">
+            <input name="juros_mensal" inputMode="decimal" defaultValue={String(usina.juros_mensal ?? 1).replace(".", ",")} className="campo" />
+          </Campo>
+        </div>
+      </fieldset>
+      <fieldset disabled={!podeEditar} className="rounded-[var(--radius-cartao)] border border-traco p-4 disabled:opacity-70">
         <legend className="px-1.5 text-sm font-medium">Boas-vindas do cliente</legend>
         <label className="flex items-start gap-3 text-sm">
           <input type="checkbox" name="boas_vindas_ativo" defaultChecked={usina.boas_vindas_ativo} className="mt-0.5 h-4 w-4 accent-[var(--color-sol)]" />

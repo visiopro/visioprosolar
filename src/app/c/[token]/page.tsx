@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { brl, data, hojeBR, mesExtenso, mesRef, nFatura, numero } from "@/lib/format";
 import { urlLogo } from "@/lib/usina";
 import { descreverRegra, type ModoDesconto } from "@/lib/calculo";
+import { descreverEncargo, type EncargoAtraso } from "@/lib/encargos";
 import { ChatPortal, CopiarPix } from "@/components/portal";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export default async function Portal({ params }: { params: Promise<{ token: stri
 
   const { data: faturas } = await admin
     .from("faturas")
-    .select("id, numero, referencia, vencimento, status, total_centavos, economia_centavos, sem_usina_centavos, pix_copia_cola, cobranca_id, cobranca_link, paga_em, modo_desconto, desconto_valor, compensada_kwh, consumo_kwh, tarifa, bandeira_centavos, iluminacao_centavos, sem_usina_ajustado, valor_conta_centavos")
+    .select("id, numero, referencia, vencimento, status, total_centavos, economia_centavos, sem_usina_centavos, pix_copia_cola, cobranca_id, cobranca_link, paga_em, modo_desconto, desconto_valor, compensada_kwh, consumo_kwh, tarifa, bandeira_centavos, iluminacao_centavos, sem_usina_ajustado, valor_conta_centavos, encargos_detalhe")
     .eq("cliente_id", cliente.id)
     .neq("status", "cancelada")
     .order("referencia", { ascending: false })
@@ -198,6 +199,7 @@ function DetalheCalculo({ fatura: f }: {
     sem_usina_ajustado: boolean;
     economia_centavos: number;
     total_centavos: number;
+    encargos_detalhe?: unknown;
   };
 }) {
   const modo = f.modo_desconto as ModoDesconto;
@@ -238,6 +240,12 @@ function DetalheCalculo({ fatura: f }: {
         <span className="font-semibold text-economia">{regra}</span>
         <span className="font-semibold text-economia">- {brl(Number(f.economia_centavos))}</span>
       </div>
+      {((f.encargos_detalhe as EncargoAtraso[] | null) ?? []).map((e) => (
+        <div key={e.fatura_id} className="flex justify-between gap-4 px-4 py-2.5 text-sm bg-painel">
+          <span className="text-nevoa">{descreverEncargo(e)}</span>
+          <span>{brl(e.multa_centavos + e.juros_centavos)}</span>
+        </div>
+      ))}
       {/* Total */}
       <div className="flex justify-between gap-4 px-4 py-3 text-sm bg-relevo/50">
         <span className="font-bold">Total da fatura</span>
